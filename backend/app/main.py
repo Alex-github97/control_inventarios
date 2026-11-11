@@ -1211,6 +1211,9 @@ async def _migrar_esquema(esquema: str) -> None:
             ("eam_neumatico_config", "mm_utiles", "DOUBLE PRECISION"),
             ("eam_neumatico_config", "mm_utiles_por_medida", "JSON"),
             ("eam_neumatico_config", "ventana_km_diario", "INTEGER DEFAULT 90"),
+            # Destinatarios de informes: correo y usuario de Telegram.
+            ("eam_mensajeria_destinatario", "correo", "VARCHAR(160)"),
+            ("eam_mensajeria_destinatario", "telegram_usuario", "VARCHAR(80)"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)
@@ -2470,7 +2473,12 @@ async def lifespan(app: FastAPI):
     # Informes PDF de flota grandes: la misma cola repartida con SKIP LOCKED.
     from app.core import informe_flota_cola
     tarea_informes = asyncio.create_task(informe_flota_cola.ciclo())
+    # El bot de Telegram de TittanWare: vincula a quien abre su enlace. Un solo
+    # proceso lo lee a la vez (candado en Redis).
+    from app.core import mensajeria
+    tarea_telegram = asyncio.create_task(mensajeria.ciclo_telegram())
     yield
+    tarea_telegram.cancel()
     tarea_bodega.cancel()
     tarea_reuniones.cancel()
     tarea_informes.cancel()

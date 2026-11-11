@@ -405,12 +405,13 @@ CATALOGO: List[Herramienta] = [
         "- plan_recambio_excel: plan de recambio de llantas: proyección de km de cada llanta (km/mm × mm útiles) "
         "y cuántas direccionales, de tracción y libres cambiar por mes y dimensión (meses = horizonte; "
         "origen LITE para las inspeccionadas con TittanLite).\n"
+        "- disposicion_excel: pila de desechos y disposición final de llantas (desde, hasta o dias).\n"
         "Si el usuario no dice cuál, elige el más cercano a lo que pidió o pregunta en una frase. Después "
         "confirma en una frase que quedó listo; no describas su contenido.",
         _obj({
             "tipo": {"type": "string", "enum": ["ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf",
                                                "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf",
-                                               "tittanlite_pdf", "tittanlite_excel", "plan_recambio_excel"]},
+                                               "tittanlite_pdf", "tittanlite_excel", "plan_recambio_excel", "disposicion_excel"]},
             "origen": {"type": "string", "enum": ["TITTANWARE", "LITE"]},
             "meses": {"type": "integer"},
             "informe_llantas": {"type": "string", "enum": ["TABLERO", "CPK", "KM", "KM_MM", "VIDAS", "COMPOSICION"]},

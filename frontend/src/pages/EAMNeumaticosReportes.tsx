@@ -20,6 +20,7 @@ import { TableroRendimiento, InformeMetrica, DetalleVidas, BotonInformePDF } fro
 import { EstadoLlantasPiso } from '@/components/eam/EstadoLlantasPiso'
 import { InformeTittanLite } from '@/components/eam/InformeTittanLite'
 import { PlanRecambio } from '@/components/eam/PlanRecambio'
+import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
 import { COLOR_MODULO } from '@/config/marca'
 const EAM_COLOR = COLOR_MODULO
@@ -369,6 +370,10 @@ export default function EAMNeumaticosReportes() {
                     <MenuItem key={v.id} value={String(v.id)}>{v.placa || v.codigo} — {v.nombre}</MenuItem>
                   ))}
                 </TextField>
+              )}
+              {tipo === 'ESTADO_FLOTA' && (
+                <BotonesEnviar informe={{ tipo: 'llantas_flota_pdf', desde: desde || undefined, hasta: hasta || undefined,
+                  tipo_vehiculo: tipoVeh || undefined }} />
               )}
               {tipo === 'ESTADO_FLOTA' && (
                 <TextField select size="small" label="Tipo de vehículo" value={tipoVeh}

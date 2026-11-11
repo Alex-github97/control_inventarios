@@ -134,7 +134,7 @@ from app.infrastructure.models.lubricacion import (
     LubeMuestra, LubeResultado, LubeDiagnostico, LubeAsesor,
 )
 from app.infrastructure.models.mensajeria import (  # noqa: F401
-    MensajeriaConfig, MensajeriaDestinatario, MensajeriaEnvio,
+    MensajeriaDestinatario, MensajeriaEnvio,
 )
 from app.infrastructure.models.lite import (  # noqa: F401
     LiteDisposicion, LiteFoto, LiteInspeccion, LiteInspeccionLlanta,

@@ -4152,24 +4152,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/eam/mensajeria/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Ver Config */
-        get: operations["ver_config_api_v1_eam_mensajeria_config_get"];
-        /** Guardar Config */
-        put: operations["guardar_config_api_v1_eam_mensajeria_config_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/eam/mensajeria/destinatarios": {
         parameters: {
             query?: never;
@@ -4240,15 +4222,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/eam/mensajeria/informes": {
+    "/api/v1/eam/mensajeria/estado": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Informes */
-        get: operations["informes_api_v1_eam_mensajeria_informes_get"];
+        /**
+         * Estado
+         * @description Qué canales tiene encendidos TittanWare y si este usuario administra destinatarios.
+         */
+        get: operations["estado_api_v1_eam_mensajeria_estado_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4268,7 +4253,7 @@ export interface paths {
         put?: never;
         /**
          * Revisar Telegram
-         * @description Lee los mensajes pendientes del bot y vincula a quien abrió su enlace.
+         * @description Fuerza una lectura del bot (normalmente lo hace solo cada pocos segundos).
          */
         post: operations["revisar_telegram_api_v1_eam_mensajeria_telegram_revisar_post"];
         delete?: never;
@@ -8753,18 +8738,12 @@ export interface components {
             activo: boolean;
             /** Alias */
             alias: string;
+            /** Correo */
+            correo?: string | null;
             /** Telefono */
             telefono?: string | null;
-            /**
-             * Telegram
-             * @default true
-             */
-            telegram: boolean;
-            /**
-             * Whatsapp
-             * @default true
-             */
-            whatsapp: boolean;
+            /** Telegram Usuario */
+            telegram_usuario?: string | null;
         };
         /** DiagnosticoIn */
         DiagnosticoIn: {
@@ -9137,18 +9116,12 @@ export interface components {
         };
         /** EnviarIn */
         EnviarIn: {
-            /**
-             * Canales
-             * @default [
-             *       "TELEGRAM",
-             *       "WHATSAPP"
-             *     ]
-             */
-            canales: string[];
+            /** Canal */
+            canal: string;
             /** Destinatario Ids */
             destinatario_ids: number[];
-            /** Informe */
-            informe: Record<string, never>;
+            /** Informes */
+            informes: Record<string, never>[];
             /** Mensaje */
             mensaje?: string | null;
         };
@@ -13702,19 +13675,6 @@ export interface components {
             sistema?: string | null;
             /** Subsistema */
             subsistema?: string | null;
-        };
-        /** ConfigIn */
-        app__api__v1__endpoints__eam_mensajeria__ConfigIn: {
-            /** Telegram Token */
-            telegram_token?: string | null;
-            /** Whatsapp Idioma */
-            whatsapp_idioma?: string | null;
-            /** Whatsapp Numero Id */
-            whatsapp_numero_id?: string | null;
-            /** Whatsapp Plantilla */
-            whatsapp_plantilla?: string | null;
-            /** Whatsapp Token */
-            whatsapp_token?: string | null;
         };
         /** MotivoIn */
         app__api__v1__endpoints__inventario__MotivoIn: {
@@ -23765,59 +23725,6 @@ export interface operations {
             };
         };
     };
-    ver_config_api_v1_eam_mensajeria_config_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    guardar_config_api_v1_eam_mensajeria_config_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["app__api__v1__endpoints__eam_mensajeria__ConfigIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     destinatarios_api_v1_eam_mensajeria_destinatarios_get: {
         parameters: {
             query?: never;
@@ -23988,7 +23895,7 @@ export interface operations {
             };
         };
     };
-    informes_api_v1_eam_mensajeria_informes_get: {
+    estado_api_v1_eam_mensajeria_estado_get: {
         parameters: {
             query?: never;
             header?: never;

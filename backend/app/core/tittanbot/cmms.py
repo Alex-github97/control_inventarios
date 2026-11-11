@@ -315,29 +315,30 @@ async def _enviar_informe(c: Contexto, a: dict) -> dict:
     if not dests:
         return {"exito": False, "resultado": "No encontré esos destinatarios; consúltalos con destinatarios_mensajeria."}
     r = await ejecutor.llamar_api("POST", "/api/v1/eam/mensajeria/enviar", c.headers, _limpio({
-        "destinatario_ids": [d["id"] for d in dests], "canales": a.get("canales") or ["TELEGRAM", "WHATSAPP"],
-        "informe": _informe_de(a), "mensaje": a.get("mensaje")}))
+        "destinatario_ids": [d["id"] for d in dests], "canal": a.get("canal") or "WHATSAPP",
+        "informes": [_informe_de(a)], "mensaje": a.get("mensaje")}))
     if r.status_code >= 300:
         return await _resultado(r)
     d = r.json()
-    partes = [f"{x['alias']} por {'Telegram' if x['canal'] == 'TELEGRAM' else 'WhatsApp'}: "
-              + ("enviado" if x["estado"] == "ENVIADO" else f"falló ({x['error']})") for x in d["resultados"]]
-    return {"exito": d["enviados"] > 0, "resultado": f"{d['informe']} ({d['archivo']}). " + "; ".join(partes)}
+    partes = [f"{x['alias']}: " + ("enviado" if x["estado"] == "ENVIADO" else f"falló ({x['error']})")
+              for x in d["resultados"]]
+    return {"exito": d["enviados"] > 0, "resultado": "; ".join(partes)}
 
 
 async def _resumen_enviar(c: Contexto, a: dict) -> str:
     from app.api.v1.endpoints.eam_mensajeria import INFORMES
     dests = await _destinatarios(c, a.get("destinatarios") or [])
-    canales = a.get("canales") or ["TELEGRAM", "WHATSAPP"]
+    canal = {"WHATSAPP": "WhatsApp", "TELEGRAM": "Telegram", "CORREO": "correo"}.get(a.get("canal") or "WHATSAPP")
     return " · ".join(x for x in [
         f"Enviar {INFORMES.get(a.get('informe'), a.get('informe'))}",
         "A: " + (", ".join(d["alias"] for d in dests) or "NINGÚN DESTINATARIO ENCONTRADO"),
-        "Por: " + " y ".join("Telegram" if k == "TELEGRAM" else "WhatsApp" for k in canales),
+        f"Por {canal}",
         f"Mensaje: {a['mensaje']}" if a.get("mensaje") else None] if x)
 
 
 async def _destinatarios_mensajeria(c: Contexto, a: dict) -> dict:
-    filas = await _filas(c.db, """SELECT alias, telefono, telegram, whatsapp, telegram_chat_id IS NOT NULL AS vinculado
+    filas = await _filas(c.db, """SELECT alias, telefono AS whatsapp, correo,
+            telegram_chat_id IS NOT NULL AS telegram_vinculado
         FROM eam_mensajeria_destinatario WHERE activo ORDER BY alias""", {})
     return {"destinatarios": filas}
 
@@ -476,17 +477,16 @@ HERRAMIENTAS: List[Herramienta] = [
                       "reencauches": {"type": "integer"}, "fecha": {"type": "string"}}, ["codigo", "dano_codigo"]),
                 permiso=EAM, destructiva=True, construir=_construir_disposicion, resumir=_resumen_disposicion),
     Herramienta("destinatarios_mensajeria",
-                "Las personas a las que se pueden enviar informes por Telegram o WhatsApp (alias, si tienen "
-                "Telegram vinculado y teléfono).", _obj({}), permiso=EAM, consultar=_destinatarios_mensajeria),
+                "Las personas a las que se pueden enviar informes de llantas (alias, WhatsApp, correo y si tienen "
+                "Telegram vinculado).", _obj({}), permiso=EAM, consultar=_destinatarios_mensajeria),
     Herramienta("enviar_informe",
-                "Envía un informe del CMMS por Telegram y/o WhatsApp a destinatarios configurados (por alias). "
-                "informe es uno de los tipos de generar_reporte; lleva sus mismos parámetros.",
+                "Envía un informe de LLANTAS por WhatsApp, Telegram o correo a destinatarios configurados (por "
+                "alias). Solo informes de llantas; llevan los mismos parámetros que en generar_reporte.",
                 _obj({"informe": {"type": "string", "enum": [
                           "llantas_flota_pdf", "tittanlite_pdf", "tittanlite_excel", "plan_recambio_excel",
-                          "llantas_rendimiento_pdf", "lubricacion_flota_pdf", "lubricacion_muestra_pdf", "ordenes_excel",
-                          "causa_raiz_pdf"]},
+                          "llantas_rendimiento_pdf", "disposicion_excel"]},
                       "destinatarios": {"type": "array", "items": {"type": "string"}},
-                      "canales": {"type": "array", "items": {"type": "string", "enum": ["TELEGRAM", "WHATSAPP"]}},
+                      "canal": {"type": "string", "enum": ["WHATSAPP", "TELEGRAM", "CORREO"]},
                       "mensaje": {"type": "string"}, "dias": {"type": "integer"}, "desde": {"type": "string"},
                       "hasta": {"type": "string"}, "placa": {"type": "string"},
                       "origen": {"type": "string", "enum": ["TITTANWARE", "LITE"]}, "meses": {"type": "integer"},

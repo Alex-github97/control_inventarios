@@ -196,6 +196,80 @@ async def _tittanlite(ctx: Contexto, a: dict, pdf: bool) -> Dict[str, Any]:
             "resultado": f"Informe TittanLite desde {desde:%d/%m/%Y} listo para descargar."}
 
 
+async def _disposicion_excel(ctx: Contexto, a: dict) -> Dict[str, Any]:
+    """Pila de desechos y disposición final: el tablero (por ubicación, avería,
+    causa, motivo, responsable, marca, dimensión, vida) y una fila por llanta."""
+    import io
+    from datetime import date, timedelta
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    hasta = a.get("hasta") or date.today().isoformat()
+    desde = a.get("desde") or (date.today() - timedelta(days=int(a.get("dias") or 90))).isoformat()
+    params = {"desde": desde[:10], "hasta": hasta[:10]}
+    r = await ejecutor.llamar_api("GET", "/api/v1/eam/neumaticos/reportes/descarte", ctx.headers, params=params)
+    if r.status_code != 200:
+        return {"exito": False, "resultado": str(ejecutor._detalle(r))}
+    t = r.json()
+    filas: List[dict] = []
+    for pagina in range(10):
+        rr = await ejecutor.llamar_api("GET", "/api/v1/eam/neumaticos/disposicion", ctx.headers,
+                                       params={**params, "limite": 500, "desplazamiento": pagina * 500})
+        lote = rr.json() if rr.status_code == 200 else []
+        filas += lote
+        if len(lote) < 500:
+            break
+
+    libro = Workbook()
+    h = libro.active
+    h.title = "Resumen"
+    h.append(["Pila de desechos y disposición final"])
+    h["A1"].font = Font(bold=True, size=13)
+    h.append([f"Bajas del {desde[:10]} al {hasta[:10]}"])
+    h.append([])
+    h.append(["Llantas dadas de baja", t.get("total")])
+    h.append(["Índice de reencauche (I.R.)", (t.get("ir") or {}).get("ir")])
+    disp = t.get("disposicion") or {}
+    h.append(["Con examen de disposición", disp.get("registradas")])
+    h.append(["Profundidad remanente promedio (mm)", disp.get("profundidad_remanente")])
+    h.append(["Con reparaciones", disp.get("con_reparaciones")])
+    for titulo, clave in (("Por código de daño", "por_dano"), ("Dónde está el daño", "por_ubicacion"),
+                          ("Categoría de daño", "por_categoria"), ("Causa", "por_causa"), ("Motivo", "por_motivo_dano"),
+                          ("Responsable", "por_responsable"), ("Vida", "por_vida")):
+        h.append([])
+        h.append([titulo, "Llantas", "%"])
+        for c in h[h.max_row]:
+            c.font = Font(bold=True)
+        for x in t.get(clave) or []:
+            h.append([x.get("nombre"), x.get("cantidad"), x.get("porcentaje")])
+    for titulo, clave in (("Por marca", "por_marca"), ("Por dimensión", "por_medida")):
+        h.append([])
+        h.append([titulo, "Llantas", "I.R."])
+        for c in h[h.max_row]:
+            c.font = Font(bold=True)
+        for x in t.get(clave) or []:
+            h.append([x.get("categoria"), x.get("total"), x.get("ir")])
+    h.column_dimensions["A"].width = 52
+    d = libro.create_sheet("Llantas")
+    d.append(["Fecha", "Llanta", "Marca", "Referencia", "Dimensión", "Vida", "Código de daño", "Daño",
+              "Ubicación del daño", "Responsable", "Prof. mínima (mm)", "Reparaciones", "Fotos", "Origen"])
+    for c in d[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="051C2C")
+    for f in filas:
+        d.append([str(f.get("fecha") or "")[:10], f.get("codigo"), f.get("marca"), f.get("referencia"), f.get("medida"),
+                  "VN" if not f.get("vida") else f"R{f.get('vida')}", f.get("dano_codigo"), f.get("dano"),
+                  f.get("ubicacion_dano"), f.get("responsable"), f.get("profundidad_minima"), f.get("reparaciones"),
+                  f.get("fotos"), f.get("origen")])
+    for col, ancho in zip("ABCDEFGHIJKLMN", (11, 12, 14, 14, 13, 6, 10, 40, 20, 14, 10, 10, 7, 11)):
+        d.column_dimensions[col].width = ancho
+    d.freeze_panes = "A2"
+    salida = io.BytesIO()
+    libro.save(salida)
+    g = await _guardar(ctx, salida.getvalue(), f"pila-desechos-{datetime.now():%Y%m%d}.xlsx",
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return {"exito": True, "titulo": "Pila de desechos y disposición final (Excel)", "filas": len(filas), **g}
+
+
 async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
     tipo = a.get("tipo")
     if tipo == "ordenes_excel":
@@ -218,6 +292,8 @@ async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
         return await _llantas_rendimiento(ctx, a)
     if tipo == "causa_raiz_pdf":
         return await _causa_raiz(ctx, a)
+    if tipo == "disposicion_excel":
+        return await _disposicion_excel(ctx, a)
     if tipo == "plan_recambio_excel":
         from app.api.v1.endpoints.eam_neumaticos_proyeccion import excel_plan
         origen = "LITE" if (a.get("origen") or "").upper() == "LITE" else "TITTANWARE"

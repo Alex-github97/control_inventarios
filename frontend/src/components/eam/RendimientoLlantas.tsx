@@ -24,6 +24,7 @@ import { exportarExcel } from '@/utils/exportar'
 import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
 import { FILTROS_VACIOS, FiltrosLlantasBarra, type FiltrosLlantas } from './FiltrosLlantas'
 import { COLOR_MODULO } from '@/config/marca'
+import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
 const COLOR = COLOR_MODULO
 
@@ -536,6 +537,7 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
       <Controles f={f} onChange={setF} dimensiones={q.data?.dimensiones ?? []} dimension={dimension} onDimension={setDimension}
         llantas={llantas} onLlantas={setLlantas}
         extra={<>
+          <BotonesEnviar informe={{ tipo: 'llantas_rendimiento_pdf', informe_llantas: tipoPDF, desde: desde || undefined, hasta: hasta || undefined }} />
           <BotonInformePDF tipo={tipoPDF} params={paramsPDF} disabled={!q.data} />
           <Button variant="contained" startIcon={<Download />} disabled={!q.data}
             onClick={() => exportarGrupos(q.data, vista === 'DETALLE' ? dimension : null, `${m.titulo} por categoría`, `llantas-${metrica.replace('_', '-')}`, descripcionFiltros(f, desde, hasta))}

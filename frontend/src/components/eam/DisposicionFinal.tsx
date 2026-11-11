@@ -24,6 +24,7 @@ import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { CargueMasivo } from '@/components/catalogo/CargueMasivo'
 import { mensajeDeError } from '@/utils/errorApi'
+import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
 const B = '/eam/neumaticos/disposicion'
 const ROJO = '#B91C1C'
@@ -452,6 +453,7 @@ export function ListaDisposiciones({ desde, hasta }: { desde?: string; hasta?: s
           <TextField size="small" placeholder="Llanta, marca, referencia o daño" value={buscar}
             onChange={e => { setBuscar(e.target.value); setPagina(0) }} sx={{ minWidth: 240 }}
             InputProps={{ startAdornment: <Search fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} /> }} />
+          <BotonesEnviar informe={{ tipo: 'disposicion_excel', desde: desde || undefined, hasta: hasta || undefined }} />
           <Button size="small" variant="outlined" onClick={() => setImportar(v => !v)} sx={{ textTransform: 'none' }}>Cargue masivo</Button>
           <Button size="small" variant="contained" startIcon={<Recycling />} onClick={() => setRegistrar(true)}
             sx={{ textTransform: 'none', fontWeight: 700, bgcolor: ROJO, '&:hover': { bgcolor: '#7F1D1D' } }}>Registrar disposición</Button>

@@ -11,7 +11,7 @@ import { SUPPORTED_LANGUAGES } from '@/i18n'
 import { COLOR_MODULO } from '@/config/marca'
 import { AdminCatalogos } from '@/components/catalogo/AdminCatalogos'
 import { LogoEmpresa } from '@/components/LogoEmpresa'
-import { ConfigMensajeria } from '@/components/mensajeria/Mensajeria'
+import { DestinatariosInformes } from '@/components/mensajeria/Mensajeria'
 const CARD_BG = '#FFFFFF'
 const ACCENT    = '#1A1A1A'
 const SECTION_COLOR = COLOR_MODULO
@@ -115,8 +115,8 @@ export default function Configuracion() {
 
       </Box>
 
-      {/* Envío de informes por Telegram y WhatsApp: solo lo ve el administrador. */}
-      <ConfigMensajeria />
+      {/* Destinatarios de informes de llantas: el administrador o el permiso «mensajeria». */}
+      <DestinatariosInformes />
     
       {/* Listas controladas del módulo. Se arman solas desde el registro del
           backend: agregar un catálogo es una línea allá, no una pantalla acá. */}

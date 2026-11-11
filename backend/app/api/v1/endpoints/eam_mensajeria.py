@@ -1,9 +1,10 @@
 """
-Envío de informes del CMMS por Telegram y WhatsApp Business.
+Envío de informes de LLANTAS por WhatsApp, Telegram o correo, con los canales
+de TittanWare (un bot / número / remitente para todos los clientes).
 
-La configuración (tokens) y los destinatarios los maneja el administrador de la
-cuenta; enviar puede cualquiera con acceso al CMMS. El informe se arma con el
-mismo generador de TittanBot, así que se puede mandar cualquiera de los suyos.
+Cada cliente registra sus destinatarios (alias, WhatsApp, Telegram, correo):
+el administrador o quien tenga el permiso de perfil «mensajeria». Enviar puede
+cualquiera con acceso al CMMS. Los informes los arma el generador de TittanBot.
 """
 import secrets
 from datetime import datetime
@@ -12,91 +13,57 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import mensajeria as m
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import get_current_user
 from app.core.tenant import esquema_actual
-from app.infrastructure.models.mensajeria import MensajeriaConfig, MensajeriaDestinatario, MensajeriaEnvio
+from app.infrastructure.models.mensajeria import MensajeriaDestinatario, MensajeriaEnvio
 from app.infrastructure.models.usuario import Usuario
 
-router = APIRouter(prefix="/eam/mensajeria", tags=["CMMS/EAM · Mensajería"])
+router = APIRouter(prefix="/eam/mensajeria", tags=["CMMS/EAM · Envío de informes"])
 
-# Los informes que se pueden mandar (los de TittanBot), con su nombre en pantalla.
+# Solo informes del módulo de llantas, con su nombre en pantalla.
 INFORMES = {
     "llantas_flota_pdf": "Estado de llantas de la flota (PDF)",
     "tittanlite_pdf": "Informe TittanLite (PDF)",
     "tittanlite_excel": "Informe TittanLite (Excel)",
-    "plan_recambio_excel": "Plan de recambio de llantas (Excel)",
+    "plan_recambio_excel": "Plan de recambio (Excel)",
     "llantas_rendimiento_pdf": "Rendimiento de llantas (PDF)",
-    "lubricacion_flota_pdf": "Programa de análisis de aceite (PDF)",
-    "lubricacion_muestra_pdf": "Análisis de una muestra de aceite (PDF)",
-    "ordenes_excel": "Órdenes de trabajo (Excel)",
-    "causa_raiz_pdf": "Análisis de causa raíz (PDF)",
+    "disposicion_excel": "Pila de desechos y disposición final (Excel)",
 }
+CANALES = {"WHATSAPP": "WhatsApp", "TELEGRAM": "Telegram", "CORREO": "Correo"}
 
 
 def _quien(u: Usuario) -> str:
     return (f"{u.nombre or ''} {u.apellido or ''}".strip() or u.username)[:120]
 
 
-async def _config(db: AsyncSession) -> MensajeriaConfig:
-    c = await db.get(MensajeriaConfig, 1)
-    if c is None:
-        c = MensajeriaConfig(id=1)
-        db.add(c)
-        await db.flush()
-    return c
+def _gestiona(u: Usuario) -> bool:
+    from app.core.permisos_ruta import permitido
+    from app.core.tittanbot.herramientas import rol_de
+    return permitido(rol_de(u), getattr(u, "permisos", None) or {}, ("mensajeria",))
 
 
-# ─── Configuración ────────────────────────────────────────────────────────────
-
-class ConfigIn(BaseModel):
-    telegram_token: Optional[str] = None       # vacío = no cambiar; "-" = quitar
-    whatsapp_token: Optional[str] = None
-    whatsapp_numero_id: Optional[str] = None
-    whatsapp_plantilla: Optional[str] = None
-    whatsapp_idioma: Optional[str] = None
+def exigir_gestion(u: Usuario = Depends(get_current_user)) -> Usuario:
+    if not _gestiona(u):
+        raise HTTPException(403, "Su perfil no puede administrar los destinatarios de informes")
+    return u
 
 
-def _salida(c: MensajeriaConfig) -> Dict[str, Any]:
-    return {"telegram": {"configurado": bool(c.telegram_token), "token": m.enmascarar(m.descifrar(c.telegram_token)),
-                         "bot": c.telegram_usuario},
-            "whatsapp": {"configurado": bool(c.whatsapp_token and c.whatsapp_numero_id),
-                         "token": m.enmascarar(m.descifrar(c.whatsapp_token)), "numero_id": c.whatsapp_numero_id,
-                         "plantilla": c.whatsapp_plantilla, "idioma": c.whatsapp_idioma or "es"}}
+async def _codigo_cliente(db: AsyncSession) -> str:
+    fila = (await db.execute(text("SELECT codigo FROM public.plataforma_cliente WHERE esquema = :e"),
+                             {"e": esquema_actual() or "public"})).first()
+    return fila[0] if fila else "public"
 
 
-@router.get("/config")
-async def ver_config(db: AsyncSession = Depends(get_db), _: Usuario = Depends(require_admin)):
-    return _salida(await _config(db))
-
-
-@router.put("/config")
-async def guardar_config(data: ConfigIn, db: AsyncSession = Depends(get_db), _: Usuario = Depends(require_admin)):
-    c = await _config(db)
-    if data.telegram_token:
-        if data.telegram_token.strip() == "-":
-            c.telegram_token, c.telegram_usuario = None, None
-        else:
-            token = data.telegram_token.strip()
-            try:
-                c.telegram_usuario = await m.telegram_bot(token)
-            except m.ErrorMensajeria as e:
-                raise HTTPException(422, f"Telegram no aceptó el token: {e}")
-            except Exception:  # noqa: BLE001
-                raise HTTPException(502, "No se pudo contactar a Telegram desde el servidor")
-            c.telegram_token, c.telegram_offset = m.cifrar(token), 0
-    if data.whatsapp_token:
-        c.whatsapp_token = None if data.whatsapp_token.strip() == "-" else m.cifrar(data.whatsapp_token.strip())
-    for k in ("whatsapp_numero_id", "whatsapp_plantilla", "whatsapp_idioma"):
-        v = getattr(data, k)
-        if v is not None:
-            setattr(c, k, v.strip() or None)
-    await db.commit()
-    return _salida(c)
+@router.get("/estado")
+async def estado(u: Usuario = Depends(get_current_user)):
+    """Qué canales tiene encendidos TittanWare y si este usuario administra destinatarios."""
+    return {"canales": m.canales(), "bot_telegram": await m.bot_usuario(), "gestiona": _gestiona(u),
+            "informes": [{"tipo": k, "nombre": v} for k, v in INFORMES.items()]}
 
 
 # ─── Destinatarios ────────────────────────────────────────────────────────────
@@ -104,47 +71,59 @@ async def guardar_config(data: ConfigIn, db: AsyncSession = Depends(get_db), _: 
 class DestinatarioIn(BaseModel):
     alias: str = Field(min_length=1, max_length=120)
     telefono: Optional[str] = Field(None, max_length=30)
-    telegram: bool = True
-    whatsapp: bool = True
+    correo: Optional[str] = Field(None, max_length=160)
+    telegram_usuario: Optional[str] = Field(None, max_length=80)
     activo: bool = True
 
 
-def _dest(d: MensajeriaDestinatario, bot: Optional[str]) -> Dict[str, Any]:
-    return {"id": d.id, "alias": d.alias, "telefono": d.telefono, "telegram": d.telegram, "whatsapp": d.whatsapp,
-            "activo": d.activo, "telegram_vinculado": bool(d.telegram_chat_id),
-            "enlace_telegram": f"https://t.me/{bot}?start={d.token_vinculo}" if bot and d.token_vinculo else None}
+def _dest(d: MensajeriaDestinatario, bot: Optional[str], codigo: str) -> Dict[str, Any]:
+    return {"id": d.id, "alias": d.alias, "telefono": d.telefono, "correo": d.correo,
+            "telegram_usuario": d.telegram_usuario, "activo": d.activo,
+            "telegram_vinculado": bool(d.telegram_chat_id),
+            "enlace_telegram": f"https://t.me/{bot}?start={codigo}-{d.token_vinculo}" if bot and d.token_vinculo else None}
+
+
+def _limpio(data: DestinatarioIn) -> Dict[str, Any]:
+    v = data.model_dump()
+    for k in ("telefono", "correo", "telegram_usuario"):
+        v[k] = (v[k] or "").strip() or None
+    if v["correo"] and "@" not in v["correo"]:
+        raise HTTPException(422, "El correo no es válido")
+    if v["telegram_usuario"]:
+        v["telegram_usuario"] = "@" + v["telegram_usuario"].lstrip("@")
+    return v
 
 
 @router.get("/destinatarios")
 async def destinatarios(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
-    c = await _config(db)
+    bot, codigo = await m.bot_usuario(), await _codigo_cliente(db)
     filas = (await db.execute(select(MensajeriaDestinatario).order_by(MensajeriaDestinatario.alias))).scalars().all()
-    return [_dest(d, c.telegram_usuario) for d in filas]
+    return [_dest(d, bot, codigo) for d in filas]
 
 
 @router.post("/destinatarios", status_code=201)
 async def crear_destinatario(data: DestinatarioIn, db: AsyncSession = Depends(get_db),
-                             _: Usuario = Depends(require_admin)):
-    d = MensajeriaDestinatario(**data.model_dump(), token_vinculo=secrets.token_urlsafe(12))
+                             _: Usuario = Depends(exigir_gestion)):
+    d = MensajeriaDestinatario(**_limpio(data), token_vinculo=secrets.token_urlsafe(12))
     db.add(d)
     await db.commit()
-    return _dest(d, (await _config(db)).telegram_usuario)
+    return _dest(d, await m.bot_usuario(), await _codigo_cliente(db))
 
 
 @router.put("/destinatarios/{did}")
 async def editar_destinatario(did: int, data: DestinatarioIn, db: AsyncSession = Depends(get_db),
-                              _: Usuario = Depends(require_admin)):
+                              _: Usuario = Depends(exigir_gestion)):
     d = await db.get(MensajeriaDestinatario, did)
     if not d:
         raise HTTPException(404, "Ese destinatario no existe")
-    for k, v in data.model_dump().items():
+    for k, v in _limpio(data).items():
         setattr(d, k, v)
     await db.commit()
-    return _dest(d, (await _config(db)).telegram_usuario)
+    return _dest(d, await m.bot_usuario(), await _codigo_cliente(db))
 
 
 @router.delete("/destinatarios/{did}", status_code=204)
-async def borrar_destinatario(did: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(require_admin)):
+async def borrar_destinatario(did: int, db: AsyncSession = Depends(get_db), _: Usuario = Depends(exigir_gestion)):
     d = await db.get(MensajeriaDestinatario, did)
     if d:
         await db.delete(d)
@@ -152,122 +131,88 @@ async def borrar_destinatario(did: int, db: AsyncSession = Depends(get_db), _: U
 
 
 @router.post("/telegram/revisar")
-async def revisar_telegram(db: AsyncSession = Depends(get_db), _: Usuario = Depends(get_current_user)):
-    """Lee los mensajes pendientes del bot y vincula a quien abrió su enlace."""
-    from app.api.v1.endpoints.tittanbot import _empresa
-    c = await _config(db)
-    token = m.descifrar(c.telegram_token)
-    if not token:
-        raise HTTPException(409, "Configure primero el bot de Telegram")
+async def revisar_telegram(_: Usuario = Depends(get_current_user)):
+    """Fuerza una lectura del bot (normalmente lo hace solo cada pocos segundos)."""
     try:
-        actualizaciones = await m.telegram_actualizaciones(token, c.telegram_offset or 0)
+        return {"vinculados": await m.revisar_telegram()}
     except m.ErrorMensajeria as e:
-        raise HTTPException(502, f"Telegram: {e}. Si el bot tiene un webhook, quítelo (deleteWebhook).")
-    empresa = await _empresa(db)
-    vinculados = []
-    for u in actualizaciones:
-        c.telegram_offset = max(c.telegram_offset or 0, u["update_id"] + 1)
-        msj = u.get("message") or {}
-        texto = (msj.get("text") or "").strip()
-        if not texto.startswith("/start "):
-            continue
-        d = (await db.execute(select(MensajeriaDestinatario).where(
-            MensajeriaDestinatario.token_vinculo == texto.split(" ", 1)[1].strip()))).scalar()
-        if d is None:
-            continue
-        d.telegram_chat_id = str(msj["chat"]["id"])
-        vinculados.append(d.alias)
-        try:
-            await m.telegram_texto(token, d.telegram_chat_id,
-                                   f"Listo, {d.alias}: desde ahora recibirá aquí los informes de {empresa}.")
-        except m.ErrorMensajeria:
-            pass
-    await db.commit()
-    return {"vinculados": vinculados}
+        raise HTTPException(502, str(e))
 
 
 # ─── Enviar ───────────────────────────────────────────────────────────────────
 
 class EnviarIn(BaseModel):
+    canal: str
     destinatario_ids: List[int] = Field(min_length=1)
-    canales: List[str] = ["TELEGRAM", "WHATSAPP"]
-    informe: Dict[str, Any]            # {"tipo": "...", y los parámetros del informe}
+    informes: List[Dict[str, Any]] = Field(min_length=1, max_length=6)   # [{"tipo": …, parámetros}]
     mensaje: Optional[str] = None
 
 
-@router.get("/informes")
-async def informes(_: Usuario = Depends(get_current_user)):
-    return [{"tipo": k, "nombre": v} for k, v in INFORMES.items()]
-
-
-async def enviar_informe(db: AsyncSession, usuario: Usuario, headers: Dict[str, str], data: EnviarIn) -> Dict[str, Any]:
+async def _armar(ctx, informe: Dict[str, Any]):
     from app.core.tittanbot import reportes
-    from app.core.tittanbot.herramientas import Contexto
     from app.infrastructure.models.tittanbot import TittanbotDescarga
-    tipo = (data.informe or {}).get("tipo")
-    if tipo not in INFORMES:
-        raise HTTPException(422, "Ese informe no se puede enviar")
-    c = await _config(db)
-    tg, wa = m.descifrar(c.telegram_token), m.descifrar(c.whatsapp_token)
-    if not tg and not (wa and c.whatsapp_numero_id):
-        raise HTTPException(409, "La cuenta no tiene configurado Telegram ni WhatsApp")
+    antes = len(ctx.descargas)
+    r = await reportes.generar(ctx, dict(informe))
+    if len(ctx.descargas) == antes:
+        raise HTTPException(422, f"{INFORMES[informe['tipo']]}: {r.get('resultado') or 'no se pudo generar'}")
+    desc_ = (await ctx.db.execute(select(TittanbotDescarga).where(
+        TittanbotDescarga.token == ctx.descargas[-1]["token"]))).scalar()
+    return Path(desc_.ruta).read_bytes(), desc_.nombre, desc_.tipo or "application/octet-stream"
+
+
+async def enviar_informes(db: AsyncSession, usuario: Usuario, headers: Dict[str, str], data: EnviarIn) -> Dict[str, Any]:
+    from app.api.v1.endpoints.tittanbot import _empresa
+    from app.core.tittanbot.herramientas import Contexto
+    canal = (data.canal or "").upper()
+    if canal not in CANALES:
+        raise HTTPException(422, "Canal inválido: WHATSAPP, TELEGRAM o CORREO")
+    if not m.canales()[canal]:
+        raise HTTPException(409, f"El envío por {CANALES[canal]} todavía no está habilitado en TittanWare")
+    for i in data.informes:
+        if i.get("tipo") not in INFORMES:
+            raise HTTPException(422, "Solo se pueden enviar informes de llantas")
     dests = (await db.execute(select(MensajeriaDestinatario).where(
         MensajeriaDestinatario.id.in_(data.destinatario_ids), MensajeriaDestinatario.activo.is_(True)))).scalars().all()
     if not dests:
         raise HTTPException(422, "Ningún destinatario activo")
 
+    empresa = await _empresa(db)
     ctx = Contexto(db=db, usuario=usuario, esquema=esquema_actual() or "public", headers=headers)
-    r = await reportes.generar(ctx, dict(data.informe))
-    if not ctx.descargas:
-        raise HTTPException(422, r.get("resultado") or "No se pudo generar el informe")
-    desc_ = (await db.execute(select(TittanbotDescarga).where(
-        TittanbotDescarga.token == ctx.descargas[-1]["token"]))).scalar()
-    contenido = Path(desc_.ruta).read_bytes()
-    nombre, mime = desc_.nombre, desc_.tipo or "application/octet-stream"
-    texto = (data.mensaje or f"{INFORMES[tipo]} · enviado por {_quien(usuario)}").strip()
-
+    archivos = [(INFORMES[i["tipo"]], *(await _armar(ctx, i))) for i in data.informes]
     resultados = []
     for d in dests:
-        for canal in data.canales:
-            if canal == "TELEGRAM" and d.telegram:
-                if not tg:
-                    estado, error = "ERROR", "Telegram no está configurado"
-                elif not d.telegram_chat_id:
-                    estado, error = "ERROR", "No ha abierto el enlace del bot (sin vincular)"
+        for titulo, contenido, nombre, tipo in archivos:
+            texto = (data.mensaje or f"{titulo} de {empresa}, enviado por {_quien(usuario)} desde TittanWare.").strip()
+            try:
+                if canal == "TELEGRAM":
+                    if not d.telegram_chat_id:
+                        raise m.ErrorMensajeria("todavía no abrió su enlace del bot de Telegram")
+                    await m.telegram_documento(d.telegram_chat_id, contenido, nombre, texto)
+                elif canal == "WHATSAPP":
+                    if not d.telefono:
+                        raise m.ErrorMensajeria("no tiene número de WhatsApp")
+                    await m.whatsapp_documento(d.telefono, contenido, nombre, tipo, texto)
                 else:
-                    try:
-                        await m.telegram_documento(tg, d.telegram_chat_id, contenido, nombre, texto)
-                        estado, error = "ENVIADO", None
-                    except Exception as e:  # noqa: BLE001
-                        estado, error = "ERROR", str(e)[:400]
-            elif canal == "WHATSAPP" and d.whatsapp:
-                if not (wa and c.whatsapp_numero_id):
-                    estado, error = "ERROR", "WhatsApp no está configurado"
-                elif not d.telefono:
-                    estado, error = "ERROR", "Sin número de teléfono"
-                else:
-                    try:
-                        await m.whatsapp_documento(wa, c.whatsapp_numero_id, d.telefono, contenido, nombre, mime, texto,
-                                                   c.whatsapp_plantilla, c.whatsapp_idioma or "es")
-                        estado, error = "ENVIADO", None
-                    except Exception as e:  # noqa: BLE001
-                        estado, error = "ERROR", str(e)[:400]
-            else:
-                continue
-            db.add(MensajeriaEnvio(destinatario_id=d.id, alias=d.alias, canal=canal, informe=INFORMES[tipo],
-                                   archivo=nombre, estado=estado, error=error, enviado_por=_quien(usuario),
-                                   fecha=datetime.utcnow()))
-            resultados.append({"alias": d.alias, "canal": canal, "estado": estado, "error": error})
+                    if not d.correo:
+                        raise m.ErrorMensajeria("no tiene correo")
+                    await m.correo(d.correo, f"{titulo} · {empresa}", texto, contenido, nombre, tipo)
+                estado, error = "ENVIADO", None
+            except m.ErrorMensajeria as e:
+                estado, error = "ERROR", str(e)[:400]
+            except Exception as e:  # noqa: BLE001 — se registra y se sigue con el resto
+                estado, error = "ERROR", str(e)[:400]
+            db.add(MensajeriaEnvio(destinatario_id=d.id, alias=d.alias, canal=canal, informe=titulo, archivo=nombre,
+                                   estado=estado, error=error, enviado_por=_quien(usuario), fecha=datetime.utcnow()))
+            resultados.append({"alias": d.alias, "informe": titulo, "estado": estado, "error": error})
     await db.commit()
-    return {"informe": INFORMES[tipo], "archivo": nombre, "resultados": resultados,
-            "enviados": sum(1 for x in resultados if x["estado"] == "ENVIADO")}
+    return {"canal": canal, "resultados": resultados, "enviados": sum(1 for x in resultados if x["estado"] == "ENVIADO")}
 
 
 @router.post("/enviar")
 async def enviar(data: EnviarIn, request: Request, db: AsyncSession = Depends(get_db),
                  usuario: Usuario = Depends(get_current_user)):
     headers = {"authorization": request.headers.get("authorization"), "x-cliente": request.headers.get("x-cliente")}
-    return await enviar_informe(db, usuario, headers, data)
+    return await enviar_informes(db, usuario, headers, data)
 
 
 @router.get("/envios")

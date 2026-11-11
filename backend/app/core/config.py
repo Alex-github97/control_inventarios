@@ -71,6 +71,20 @@ class Settings(BaseSettings):
     # si una pantalla legítima resulta pidiendo algo que su perfil no tiene.
     PERMISOS_PERFIL_MODO: str = "exigir"
 
+    # ── Envío de informes (bots de TittanWare, uno para todos los clientes) ────
+    # Sin token el canal queda apagado y la pantalla lo dice; no rompe nada.
+    TELEGRAM_BOT_TOKEN: str = ""
+    WHATSAPP_TOKEN: str = ""
+    WHATSAPP_NUMERO_ID: str = ""
+    WHATSAPP_PLANTILLA: str = ""      # plantilla aprobada por Meta con encabezado de documento
+    WHATSAPP_IDIOMA: str = "es"
+    SMTP_HOST: str = ""
+    SMTP_PUERTO: int = 587
+    SMTP_USUARIO: str = ""
+    SMTP_CLAVE: str = ""
+    CORREO_REMITENTE: str = ""        # p. ej. no_reply@tittanware.com
+    CORREO_NOMBRE: str = "TittanWare"
+
     # ── TittanBot ────────────────────────────────────────────────────────────
     # Sin clave el bot queda apagado y la burbuja lo dice; no rompe nada.
     TITTANBOT_API_KEY: str = ""

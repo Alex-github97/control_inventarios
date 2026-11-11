@@ -101,6 +101,8 @@ PERMISOS_PERFIL: List[Permiso] = [
     # Quien lo tenga puede crear usuarios y perfiles de su propia empresa, así
     # que se separa del resto: es el único que reparte poder.
     Permiso("usuarios", "Usuarios y perfiles",         "Administración"),
+    # A quién se le pueden mandar informes por WhatsApp, Telegram o correo.
+    Permiso("mensajeria", "Destinatarios de informes", "Administración"),
 
     # ── Asistente ─────────────────────────────────────────────────────────
     # TittanBot actúa en nombre del usuario y con sus mismos permisos, pero

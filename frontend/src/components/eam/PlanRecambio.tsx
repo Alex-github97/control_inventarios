@@ -24,7 +24,7 @@ import {
 } from 'recharts'
 import { apiClient as api } from '@/api/client'
 import { mensajeDeError } from '@/utils/errorApi'
-import { BotonEnviarInforme } from '@/components/mensajeria/Mensajeria'
+import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
 const B = '/eam/neumaticos/proyeccion'
 const EJES = ['Direccional', 'Tracción', 'Libre', 'Sin dato de eje'] as const
@@ -195,7 +195,7 @@ export function PlanRecambio() {
             ? 'Profundidad de la última inspección Lite y km/mm promedio de las llantas de la cuenta en TittanWare.'
             : 'Km/mm de cada llanta (o el histórico de su referencia) y km diario de cada vehículo.'}
         </Typography>
-        <BotonEnviarInforme informe={{ tipo: 'plan_recambio_excel', origen, meses }} />
+        <BotonesEnviar informe={{ tipo: 'plan_recambio_excel', origen, meses }} />
         <Button variant="contained" startIcon={<Download />} disabled={bajando || !data?.total_llantas} onClick={bajar}
           sx={{ textTransform: 'none', fontWeight: 700 }}>{bajando ? 'Generando…' : 'Descargar Excel'}</Button>
       </Stack>

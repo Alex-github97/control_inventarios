@@ -18,7 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
 import { mensajeDeError } from '@/utils/errorApi'
-import { BotonEnviarInforme } from '@/components/mensajeria/Mensajeria'
+import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
 const B = '/eam/lite'
 const COLOR_ESTADO: Record<string, string> = { Bueno: '#16A34A', Regular: '#D97706', 'Crítico': '#DC2626' }
@@ -270,7 +270,7 @@ export function InformeTittanLite({ desde, hasta }: { desde: string; hasta: stri
         </Typography>
         <Button variant="contained" color="error" startIcon={<PictureAsPdf />} disabled={!!bajando || !data.vehiculos}
           onClick={() => bajar('pdf')} sx={{ textTransform: 'none', fontWeight: 700 }}>{bajando === 'pdf' ? 'Generando…' : 'Informe PDF'}</Button>
-        <BotonEnviarInforme informe={{ tipo: 'tittanlite_pdf', desde: desde || undefined, hasta: hasta || undefined }} />
+        <BotonesEnviar informe={{ tipo: 'tittanlite_pdf', desde: desde || undefined, hasta: hasta || undefined }} />
         <Button variant="contained" startIcon={<Download />} disabled={!!bajando || !data.vehiculos}
           onClick={() => bajar('excel')} sx={{ textTransform: 'none', fontWeight: 700 }}>{bajando === 'excel' ? 'Generando…' : 'Descargar Excel'}</Button>
       </Stack>
