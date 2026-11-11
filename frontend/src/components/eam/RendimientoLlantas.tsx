@@ -13,7 +13,7 @@ import {
   ToggleButton, ToggleButtonGroup, LinearProgress,
 } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { Download, InfoOutlined, PictureAsPdf } from '@mui/icons-material'
+import { Download, InfoOutlined, OpenInFull, PictureAsPdf } from '@mui/icons-material'
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts'
@@ -528,6 +528,8 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
   const comparables = useMemo(() => ordenar(gruposComparables(dim, metrica, f.muestra), metrica), [dim, metrica, f.muestra])
   const pocos = (dim?.grupos ?? []).filter(g => !comparables.includes(g))
   const global = q.data ? valor(q.data.resumen, metrica) : null
+  // Panorama: todas las categorías a la vez, cada una ampliable a su detalle.
+  const [vista, setVista] = useState<'PANORAMA' | 'DETALLE'>('PANORAMA')
 
   return (
     <>
@@ -536,11 +538,54 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
         extra={<>
           <BotonInformePDF tipo={tipoPDF} params={paramsPDF} disabled={!q.data} />
           <Button variant="contained" startIcon={<Download />} disabled={!q.data}
-            onClick={() => exportarGrupos(q.data, null, `${m.titulo} por categoría`, `llantas-${metrica.replace('_', '-')}`, descripcionFiltros(f, desde, hasta))}
+            onClick={() => exportarGrupos(q.data, vista === 'DETALLE' ? dimension : null, `${m.titulo} por categoría`, `llantas-${metrica.replace('_', '-')}`, descripcionFiltros(f, desde, hasta))}
             sx={{ bgcolor: COLOR, textTransform: 'none', fontWeight: 700 }}>Descargar Excel</Button>
         </>} />
       {q.isFetching && <LinearProgress sx={{ mb: 1 }} />}
       <Alert severity="info" icon={<InfoOutlined />} sx={{ mb: 2, py: 0.25 }}>{m.ayuda}</Alert>
+      <Stack direction="row" alignItems="center" gap={1.5} mb={2} flexWrap="wrap">
+        <ToggleButtonGroup size="small" exclusive value={vista} onChange={(_, v) => v && setVista(v)}>
+          <ToggleButton value="PANORAMA" sx={{ textTransform: 'none', px: 1.5 }}>Todas las categorías</ToggleButton>
+          <ToggleButton value="DETALLE" sx={{ textTransform: 'none', px: 1.5 }}>Una categoría: {dim?.nombre.toLowerCase()}</ToggleButton>
+        </ToggleButtonGroup>
+        <Typography fontSize={12} color="text.secondary">
+          Flota completa: <b>{fmtMetrica(metrica, global)}</b> {metrica !== 'cpk' ? m.unidad : '$/km'}
+        </Typography>
+      </Stack>
+      {vista === 'PANORAMA' ? (
+        <Grid container spacing={2}>
+          {(q.data?.dimensiones ?? []).map(d => {
+            const comp = ordenar(gruposComparables(d, metrica, f.muestra), metrica)
+            if (!comp.length) return null
+            // «Sin dato» y «En servicio» no son una categoría que se pueda elegir.
+            const reales = comp.filter(g => !['Sin dato', 'En servicio'].includes(String(g.categoria)))
+            const mejor = reales[0] ?? comp[0]
+            const peor = reales[reales.length - 1] ?? comp[comp.length - 1]
+            return (
+              <Grid key={d.clave} size={{ xs: 12, md: 6, xl: 4 }}>
+                <Card sx={{ bgcolor: '#FFFFFF', height: '100%' }}>
+                  <CardContent>
+                    <Stack direction="row" alignItems="flex-start" gap={1}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography fontWeight={700} fontSize={14}>{m.titulo} por {d.nombre.toLowerCase()}</Typography>
+                        <Typography fontSize={11} color="text.secondary">
+                          {comp.length} comparable{comp.length === 1 ? '' : 's'} · mejor <b>{mejor.categoria}</b> ({fmtMetrica(metrica, valor(mejor, metrica))})
+                          {reales.length > 1 && <> · peor <b>{peor.categoria}</b> ({fmtMetrica(metrica, valor(peor, metrica))})</>}
+                        </Typography>
+                      </Box>
+                      <Button size="small" startIcon={<OpenInFull sx={{ fontSize: 15 }} />}
+                        aria-label={`Ampliar ${d.nombre}`}
+                        onClick={() => { setDimension(d.clave); setVista('DETALLE') }}
+                        sx={{ textTransform: 'none', flexShrink: 0 }}>Ampliar</Button>
+                    </Stack>
+                    <GraficoMetrica grupos={comp} metrica={metrica} limite={8} />
+                  </CardContent>
+                </Card>
+              </Grid>
+            )
+          })}
+        </Grid>
+      ) : (
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 5 }}>
           <Card sx={{ bgcolor: '#FFFFFF', height: '100%' }}>
@@ -565,6 +610,7 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
           </Card>
         </Grid>
       </Grid>
+      )}
     </>
   )
 }
@@ -574,7 +620,8 @@ export function InformeMetrica({ metrica, desde, hasta }: { metrica: Metrica; de
 const ETIQUETAS_CATEGORIA: Record<string, string> = {
   marca: 'Marca', referencia: 'Referencia', medida: 'Medida', vida: 'Vida', tipo_uso: 'Tipo de uso',
   tipo_vehiculo: 'Tipo de vehículo', vehiculo: 'Vehículo', banda: 'Banda', proveedor: 'Proveedor',
-  zona: 'Zona', motivo_fin: 'Motivo de fin', tipo_rin: 'Rin',
+  zona: 'Zona', motivo_fin: 'Motivo de fin', tipo_rin: 'Rin', posicion: 'Posición', eje: 'Eje',
+  marca_vehiculo: 'Marca del vehículo', anio_dot: 'Año DOT', dano_baja: 'Daño de la baja',
 }
 
 export function DetalleVidas({ desde, hasta }: { desde: string; hasta: string }) {

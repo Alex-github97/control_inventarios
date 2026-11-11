@@ -46,6 +46,11 @@ DIMENSIONES: List[Tuple[str, str]] = [
     ("zona", "Zona"),
     ("motivo_fin", "Motivo de fin de vida"),
     ("tipo_rin", "Tipo de rin"),
+    ("posicion", "Posición en el vehículo"),
+    ("eje", "Eje"),
+    ("marca_vehiculo", "Marca del vehículo"),
+    ("anio_dot", "Año de fabricación (DOT)"),
+    ("dano_baja", "Daño de la baja"),
 ]
 
 

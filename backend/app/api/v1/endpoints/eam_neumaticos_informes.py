@@ -132,17 +132,22 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
 
     # Vehículo en el que rodó cada vida: el último montaje antes de que terminara.
     montajes = defaultdict(lambda: ([], []))
-    for nid, fecha, activo_id in (await db.execute(
+    posiciones: Dict[tuple, Optional[str]] = {}
+    for nid, fecha, activo_id, posicion in (await db.execute(
         select(EAMMovimientoNeumatico.neumatico_id, EAMMovimientoNeumatico.fecha,
-               EAMMovimientoNeumatico.activo_id)
+               EAMMovimientoNeumatico.activo_id, EAMMovimientoNeumatico.posicion)
         .where(EAMMovimientoNeumatico.activo_id.isnot(None), EAMMovimientoNeumatico.fecha.isnot(None))
         .order_by(EAMMovimientoNeumatico.neumatico_id, EAMMovimientoNeumatico.fecha)
     )).all():
         montajes[nid][0].append(fecha)
         montajes[nid][1].append(activo_id)
+        posiciones[(nid, fecha)] = posicion
     activos = {a.id: a for a in (await db.execute(select(EAMActivo))).scalars().all()}
     zonas = {z.id: z.nombre for z in (await db.execute(select(EAMZonaNeumatico))).scalars().all()}
     motivos = {m.id: m.nombre for m in (await db.execute(select(EAMMotivoFinVida))).scalars().all()}
+    from app.infrastructure.models.eam import EAMDanoNeumaticoCatalogo
+    danos = {d.id: (f"{d.codigo} · {d.nombre}" if d.codigo else d.nombre)
+             for d in (await db.execute(select(EAMDanoNeumaticoCatalogo))).scalars().all()}
 
     # Cruzar las vidas es trabajo de CPU puro (cientos de miles con una flota
     # grande). En un hilo aparte el proceso sigue atendiendo otras peticiones
@@ -158,6 +163,7 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
                 "tipo_uso": n.tipo_uso or SIN_DATO,
                 "zona": zonas.get(n.zona_id, SIN_DATO),
                 "tipo_rin": n.tipo_rin or SIN_DATO,
+                "anio_dot": str(n.dot_anio) if n.dot_anio else SIN_DATO,
             }
 
             def armar(numero_vida, tipo, terminada, inicio, fin, km, mm, costo, motivo, banda, proveedor):
@@ -171,6 +177,7 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
                 if activo_id is None and not terminada:
                     activo_id = n.activo_id
                 activo = activos.get(activo_id)
+                posicion = (posiciones.get((n.id, montaje[0])) if montaje and activo_id else None)                     or (n.posicion if not terminada and activo_id == n.activo_id else None)
                 vida = etiqueta_vida(tipo, numero_vida)
                 return VidaLlanta(
                     neumatico_id=n.id, codigo=n.codigo, numero_vida=numero_vida, vida=vida,
@@ -184,6 +191,13 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
                         "banda": banda or ("Llanta nueva" if tipo == "NUEVA" else SIN_DATO),
                         "proveedor": proveedor or SIN_DATO,
                         "motivo_fin": (motivo or SIN_DATO) if terminada else "En servicio",
+                        "posicion": posicion or SIN_DATO,
+                        "eje": (posicion.split("-")[0] if posicion and "-" in posicion else SIN_DATO),
+                        "marca_vehiculo": (activo.marca if activo else None) or SIN_DATO,
+                        # El daño con que se dio de baja solo vale para la última vida.
+                        "dano_baja": (danos.get(n.dano_id) or SIN_DATO)
+                        if terminada and n.estado == "BAJA" and numero_vida == (n.reencauches or 0) + 1
+                        else ("En servicio" if not terminada else SIN_DATO),
                     },
                 )
 
