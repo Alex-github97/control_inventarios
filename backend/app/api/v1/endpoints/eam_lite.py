@@ -849,3 +849,258 @@ async def informe_excel(desde: Optional[date] = None, hasta: Optional[date] = No
     return Response(contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="tittanlite-{date.today():%Y%m%d}.xlsx"',
                              "Access-Control-Expose-Headers": "Content-Disposition"})
+
+
+# ─── Reportería TittanLite: tablero y exportaciones masivas ───────────────────
+#
+# Todo sale por SQL agregado o en tuplas, nunca en objetos ORM: con meses de
+# inspecciones son decenas de miles de líneas, y cargarlas como objetos es lo
+# que tumba a los workers (ver core/paginacion.py).
+
+_FILTRO_FECHA = ("(CAST(:d AS timestamp) IS NULL OR i.fecha >= :d) "
+                 "AND (CAST(:h AS timestamp) IS NULL OR i.fecha <= :h)")
+_PMIN = "LEAST(ln.profundidad_externa, ln.profundidad_central, ln.profundidad_interna)"
+# Las novedades se guardan como lista JSON, pero hay filas con `null` JSON: se
+# tratan como lista vacía (jsonb_array_length falla con un escalar).
+_NOV = ("(CASE WHEN jsonb_typeof(CAST(ln.novedades AS jsonb)) = 'array' "
+        "THEN CAST(ln.novedades AS jsonb) ELSE '[]'::jsonb END)")
+# Mismas claves en todas las tablas que comparten la dimensión (el filtro cruzado
+# las une por nombre).
+_DIM_LLANTA = f"""
+    UPPER(TRIM(COALESCE(NULLIF(TRIM(ln.marca), ''), n.marca, 'SIN MARCA'))) AS marca,
+    COALESCE(UPPER(REPLACE(COALESCE(NULLIF(TRIM(ln.medida), ''), n.medida), ' ', '')), 'SIN MEDIDA') AS medida,
+    'V' || LEAST(COALESCE(ln.reencauches, n.reencauches, 0), 9) AS vida,
+    CASE WHEN {_PMIN} IS NULL THEN 'R99'
+         ELSE 'R' || LPAD(CAST(CAST(LEAST(FLOOR({_PMIN} / 2), 8) AS int) AS text), 2, '0') END AS rango,
+    CASE WHEN {_PMIN} IS NULL THEN 'Sin medir' WHEN {_PMIN} <= :minimo THEN 'Crítico'
+         WHEN {_PMIN} <= :regular THEN 'Regular' ELSE 'Bueno' END AS estado,
+    COALESCE(a.tipo_activo, 'SIN TIPO') AS tipo_vehiculo"""
+
+
+def _parametros(desde, hasta, u) -> Dict[str, Any]:
+    d, h = _periodo(desde, hasta)
+    return {"d": d, "h": h, "minimo": u.profundidad_minima, "regular": u.profundidad_minima + u.margen_alerta}
+
+
+def _tabla(r) -> Dict[str, Any]:
+    return {"columnas": list(r.keys()), "filas": [list(f) for f in r.all()]}
+
+
+@router.get("/tablero/modelo")
+async def tablero_modelo(desde: Optional[date] = None, hasta: Optional[date] = None,
+                         db: AsyncSession = Depends(get_db)):
+    """Los hechos del tablero TittanLite, ya agrupados por las dimensiones que se
+    filtran en el navegador:
+
+      * piso: las llantas de la ÚLTIMA inspección Lite de cada vehículo en el
+        periodo (lo que hay montado según campo), por marca, medida, vida,
+        rango de profundidad, estado, tipo de vehículo y si tiene novedad.
+      * inspecciones: todas las del periodo, por mes, inspector y tipo.
+      * novedades: lo marcado en campo en las llantas a piso.
+      * desechos: las disposiciones finales registradas en Lite.
+    """
+    from sqlalchemy import text
+    from app.core.neumaticos_flota import umbrales
+    u = await umbrales(db)
+    p = _parametros(desde, hasta, u)
+    ultima = f"""
+        WITH ult AS (
+            SELECT DISTINCT ON (i.activo_id) i.id, i.activo_id FROM eam_lite_inspeccion i
+            WHERE {_FILTRO_FECHA} ORDER BY i.activo_id, i.fecha DESC, i.id DESC),
+        l AS (
+            SELECT ln.presion, ln.novedades, {_DIM_LLANTA}, {_PMIN} AS pmin,
+                   CASE WHEN jsonb_array_length({_NOV}) > 0 THEN 'Con novedad' ELSE 'Sin novedad' END AS novedad
+            FROM ult JOIN eam_lite_inspeccion_llanta ln ON ln.inspeccion_id = ult.id
+            JOIN eam_activo a ON a.id = ult.activo_id
+            LEFT JOIN eam_neumatico n ON n.id = COALESCE(ln.neumatico_id,
+                (SELECT n2.id FROM eam_neumatico n2 WHERE n2.codigo = ln.codigo LIMIT 1))
+            WHERE NOT jsonb_exists({_NOV}, 'SIN_LLANTA'))"""
+    piso = await db.execute(text(f"""{ultima}
+        SELECT marca, medida, vida, rango, estado, tipo_vehiculo, novedad,
+               COUNT(*) AS n, COALESCE(SUM(pmin), 0) AS mm, COUNT(pmin) AS n_mm,
+               COUNT(*) FILTER (WHERE pmin <= :minimo) AS criticas,
+               COALESCE(SUM(presion), 0) AS psi, COUNT(presion) AS n_psi
+        FROM l GROUP BY 1, 2, 3, 4, 5, 6, 7"""), p)
+    novedades = await db.execute(text(f"""{ultima}
+        SELECT x.novedad AS tipo_novedad, marca, medida, vida, rango, estado, tipo_vehiculo, COUNT(*) AS n
+        FROM l CROSS JOIN LATERAL jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(CAST(l.novedades AS jsonb)) = 'array' THEN CAST(l.novedades AS jsonb)
+                 ELSE '[]'::jsonb END) AS x(novedad)
+        GROUP BY 1, 2, 3, 4, 5, 6, 7"""), p)
+    inspecciones = await db.execute(text(f"""
+        SELECT to_char(i.fecha, 'YYYY-MM') AS mes,
+               COALESCE(NULLIF(TRIM(i.inspector), ''), 'Sin inspector') AS inspector,
+               COALESCE(a.tipo_activo, 'SIN TIPO') AS tipo_vehiculo,
+               COUNT(DISTINCT i.id) AS inspecciones, COUNT(DISTINCT i.activo_id) AS vehiculos,
+               COUNT(ln.id) AS llantas,
+               COUNT(ln.id) FILTER (WHERE {_PMIN} <= :minimo) AS criticas,
+               COUNT(ln.id) FILTER (WHERE ln.sync_estado = 'SINCRONIZADA') AS sincronizadas
+        FROM eam_lite_inspeccion i JOIN eam_activo a ON a.id = i.activo_id
+        LEFT JOIN eam_lite_inspeccion_llanta ln ON ln.inspeccion_id = i.id
+        WHERE {_FILTRO_FECHA} GROUP BY 1, 2, 3"""), p)
+    desechos = await db.execute(text(f"""
+        SELECT to_char(ln.fecha, 'YYYY-MM') AS mes,
+               COALESCE(dc.codigo || ' · ' || dc.nombre, 'Sin daño') AS dano,
+               COALESCE(NULLIF(TRIM(dc.causa), ''), 'Sin causa') AS causa,
+               UPPER(TRIM(COALESCE(NULLIF(TRIM(ln.marca), ''), 'SIN MARCA'))) AS marca,
+               COALESCE(UPPER(REPLACE(NULLIF(TRIM(ln.medida), ''), ' ', '')), 'SIN MEDIDA') AS medida,
+               'V' || LEAST(COALESCE(ln.reencauches, 0), 9) AS vida,
+               CASE WHEN {_PMIN} IS NULL THEN 'R99'
+                    ELSE 'R' || LPAD(CAST(CAST(LEAST(FLOOR({_PMIN} / 2), 8) AS int) AS text), 2, '0') END AS rango,
+               COUNT(*) AS n, COALESCE(SUM({_PMIN}), 0) AS mm, COUNT({_PMIN}) AS n_mm
+        FROM eam_lite_disposicion ln LEFT JOIN eam_dano_neumatico_catalogo dc ON dc.id = ln.dano_id
+        WHERE (CAST(:d AS timestamp) IS NULL OR ln.fecha >= :d) AND (CAST(:h AS timestamp) IS NULL OR ln.fecha <= :h)
+        GROUP BY 1, 2, 3, 4, 5, 6, 7"""), p)
+    nov = _tabla(novedades)
+    i_tipo = nov["columnas"].index("tipo_novedad")
+    for f in nov["filas"]:
+        f[i_tipo] = NOVEDADES_CAMPO.get(f[i_tipo], f[i_tipo])
+    return {"piso": _tabla(piso), "novedades": nov, "inspecciones": _tabla(inspecciones),
+            "desechos": _tabla(desechos),
+            "umbrales": {"profundidad_minima": u.profundidad_minima, "margen_alerta": u.margen_alerta}}
+
+
+def _libro_xlsx(hojas: List[tuple]) -> bytes:
+    """Libro en modo de solo escritura (no guarda las celdas en memoria): aguanta
+    cientos de miles de filas. Cada hoja: (título, encabezados, filas, anchos)."""
+    from openpyxl import Workbook
+    from openpyxl.cell import WriteOnlyCell
+    from openpyxl.styles import Font, PatternFill
+    libro = Workbook(write_only=True)
+    for titulo, encabezados, filas, anchos in hojas:
+        h = libro.create_sheet(titulo[:31])
+        for i, ancho in enumerate(anchos):
+            h.column_dimensions[chr(65 + i) if i < 26 else "A" + chr(65 + i - 26)].width = ancho
+        h.freeze_panes = "A2"
+        cab = []
+        for e in encabezados:
+            c = WriteOnlyCell(h, value=e)
+            c.font = Font(bold=True, color="FFFFFF")
+            c.fill = PatternFill("solid", fgColor="1F4E79")
+            cab.append(c)
+        h.append(cab)
+        for f in filas:
+            h.append(list(f))
+    b = io.BytesIO()
+    libro.save(b)
+    return b.getvalue()
+
+
+def _respuesta_xlsx(contenido: bytes, nombre: str) -> Response:
+    return Response(contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"',
+                             "Access-Control-Expose-Headers": "Content-Disposition"})
+
+
+def _vida(r) -> str:
+    return "VN" if not r else f"R{r}"
+
+
+async def inspecciones_excel_bytes(db: AsyncSession, desde, hasta) -> bytes:
+    """TODAS las llantas de TODAS las inspecciones Lite del periodo (no solo la
+    última por vehículo), una fila por llanta."""
+    from sqlalchemy import text
+    from app.core.neumaticos_flota import umbrales
+    u = await umbrales(db)
+    p = _parametros(desde, hasta, u)
+    filas = (await db.execute(text(f"""
+        SELECT i.fecha, COALESCE(a.placa, a.codigo), a.codigo, a.tipo_activo, i.odometro, i.inspector,
+               ln.posicion, ln.codigo, COALESCE(NULLIF(TRIM(ln.marca), ''), n.marca),
+               COALESCE(NULLIF(TRIM(ln.referencia), ''), n.referencia), COALESCE(NULLIF(TRIM(ln.medida), ''), n.medida),
+               COALESCE(ln.reencauches, n.reencauches),
+               ln.profundidad_externa, ln.profundidad_central, ln.profundidad_interna, {_PMIN},
+               CASE WHEN {_PMIN} IS NULL THEN NULL WHEN {_PMIN} <= :minimo THEN 'Crítico'
+                    WHEN {_PMIN} <= :regular THEN 'Regular' ELSE 'Bueno' END,
+               ln.presion, ln.novedades, ln.observacion,
+               (SELECT COUNT(*) FROM eam_lite_foto f WHERE f.inspeccion_llanta_id = ln.id),
+               ln.sync_estado, ln.sync_motivo, i.observaciones, i.id
+        FROM eam_lite_inspeccion i JOIN eam_activo a ON a.id = i.activo_id
+        JOIN eam_lite_inspeccion_llanta ln ON ln.inspeccion_id = i.id
+        LEFT JOIN eam_neumatico n ON n.id = COALESCE(ln.neumatico_id,
+            (SELECT n2.id FROM eam_neumatico n2 WHERE n2.codigo = ln.codigo LIMIT 1))
+        WHERE {_FILTRO_FECHA}
+        ORDER BY i.fecha, i.id, ln.posicion"""), p)).all()
+    if not filas:
+        raise HTTPException(404, "No hay inspecciones de TittanLite en el periodo")
+    sync = {"SINCRONIZADA": "En TittanWare", "PARCIAL": "Parcial", "RECHAZADA": "Solo en Lite (rechazada)",
+            "SIN_SEGUIMIENTO": "Solo en Lite", "PENDIENTE": "Pendiente"}
+
+    def construir() -> bytes:
+        datos = []
+        for f in filas:
+            nov = f[18] if isinstance(f[18], list) else []
+            datos.append([f[0].strftime("%Y-%m-%d"), f[0].strftime("%H:%M"), f[1], f[2], f[3], f[4], f[5], f[6], f[7],
+                          f[8], f[9], f[10], _vida(f[11]), f[12], f[13], f[14], f[15], f[16], f[17],
+                          ", ".join(NOVEDADES_CAMPO.get(x, x) for x in nov), f[19], f[20],
+                          sync.get(f[21], f[21]), f[22], f[23], f[24]])
+        return _libro_xlsx([(
+            "Inspecciones",
+            ["Fecha", "Hora", "Placa", "Código vehículo", "Tipo de vehículo", "Odómetro", "Inspector", "Posición",
+             "Código llanta", "Marca", "Referencia", "Medida", "Vida", "Prof. externa", "Prof. central",
+             "Prof. interna", "Prof. mínima", "Estado", "Presión (psi)", "Novedades", "Observación", "Fotos",
+             "Sincronización", "Motivo", "Observaciones generales", "N.º inspección"],
+            datos, [11, 7, 10, 13, 13, 11, 22, 12, 13, 14, 14, 13, 6, 9, 9, 9, 9, 9, 9, 30, 34, 6, 18, 44, 34, 10])])
+    return await asyncio.to_thread(construir)
+
+
+async def desechos_excel_bytes(db: AsyncSession, desde, hasta) -> bytes:
+    """La pila de desecho registrada en Lite: una fila por llanta desechada, con
+    el daño del catálogo, y un resumen por daño, causa y marca."""
+    from sqlalchemy import text
+    d, h = _periodo(desde, hasta)
+    filas = (await db.execute(text(f"""
+        SELECT ln.fecha, ln.codigo, COALESCE(a.placa, a.codigo), ln.marca, ln.referencia, ln.medida, ln.dot,
+               ln.reencauches, dc.codigo, dc.nombre, dc.ubicacion, dc.categoria, dc.causa, dc.motivo, dc.responsable,
+               ln.profundidad_externa, ln.profundidad_central, ln.profundidad_interna, {_PMIN},
+               ln.reparaciones, ln.regrabada, ln.diseno_reencauche, ln.ubicacion_actual, ln.observaciones,
+               ln.inspector, (SELECT COUNT(*) FROM eam_lite_foto f WHERE f.disposicion_id = ln.id),
+               ln.sync_estado, ln.sync_motivo
+        FROM eam_lite_disposicion ln
+        LEFT JOIN eam_dano_neumatico_catalogo dc ON dc.id = ln.dano_id
+        LEFT JOIN eam_activo a ON a.id = ln.activo_id
+        WHERE (CAST(:d AS timestamp) IS NULL OR ln.fecha >= :d) AND (CAST(:h AS timestamp) IS NULL OR ln.fecha <= :h)
+        ORDER BY ln.fecha, ln.id"""), {"d": d, "h": h})).all()
+    if not filas:
+        raise HTTPException(404, "No hay llantas desechadas en TittanLite en el periodo")
+    sync = {"SINCRONIZADA": "En TittanWare", "RECHAZADA": "Solo en Lite (rechazada)",
+            "SIN_SEGUIMIENTO": "Solo en Lite", "PENDIENTE": "Pendiente"}
+
+    def construir() -> bytes:
+        detalle = [[f[0].strftime("%Y-%m-%d"), f[1], f[2], f[3], f[4], f[5], f[6], _vida(f[7]), f[8], f[9], f[10],
+                    f[11], f[12], f[13], f[14], f[15], f[16], f[17], f[18], f[19], "Sí" if f[20] else "No", f[21],
+                    f[22], f[23], f[24], f[25], sync.get(f[26], f[26]), f[27]] for f in filas]
+        total = len(filas)
+
+        def resumen(indice, nombre):
+            c = Counter((f[indice] or f"Sin {nombre.lower()}") if not isinstance(indice, tuple)
+                        else " · ".join(x for x in (f[indice[0]], f[indice[1]]) if x) or "Sin daño" for f in filas)
+            return [[k, v, round(100 * v / total, 1)] for k, v in c.most_common()]
+        bloques = []
+        for nombre, filas_r in (("Daño", resumen((8, 9), "Daño")), ("Causa", resumen(12, "Causa")),
+                                ("Ubicación del daño", resumen(10, "Ubicación")), ("Marca", resumen(3, "Marca")),
+                                ("Medida", resumen(5, "Medida"))):
+            bloques += [[nombre.upper(), "Llantas", "%"], *filas_r, []]
+        return _libro_xlsx([
+            ("Pila de desecho",
+             ["Fecha", "Código llanta", "Vehículo", "Marca", "Referencia", "Medida", "DOT", "Vida", "Cód. daño", "Daño",
+              "Ubicación del daño", "Avería", "Causa", "Motivo", "Responsable", "Prof. externa", "Prof. central",
+              "Prof. interna", "Prof. mínima", "Reparaciones", "Regrabada", "Diseño reencauche", "Dónde está la carcasa",
+              "Observaciones", "Inspector", "Fotos", "Sincronización", "Motivo de sincronización"],
+             detalle, [11, 13, 10, 14, 14, 13, 8, 6, 9, 30, 18, 22, 24, 18, 14, 9, 9, 9, 9, 8, 8, 16, 22, 34, 20, 6, 18, 40]),
+            ("Resumen", [f"Llantas desechadas: {total}", "", ""], bloques, [40, 10, 8]),
+        ])
+    return await asyncio.to_thread(construir)
+
+
+@router.get("/exportar/inspecciones")
+async def exportar_inspecciones(desde: Optional[date] = None, hasta: Optional[date] = None,
+                                db: AsyncSession = Depends(get_db)):
+    return _respuesta_xlsx(await inspecciones_excel_bytes(db, desde, hasta),
+                           f"tittanlite-inspecciones-{date.today():%Y%m%d}.xlsx")
+
+
+@router.get("/exportar/desechos")
+async def exportar_desechos(desde: Optional[date] = None, hasta: Optional[date] = None,
+                            db: AsyncSession = Depends(get_db)):
+    return _respuesta_xlsx(await desechos_excel_bytes(db, desde, hasta),
+                           f"tittanlite-pila-desecho-{date.today():%Y%m%d}.xlsx")

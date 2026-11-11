@@ -7,7 +7,7 @@ import Grid from '@mui/material/Grid2'
 import {
   ArrowBack as BackIcon, PictureAsPdf, Download, DirectionsCar,
   Straighten, PieChart as PieIcon, Dashboard as DashboardIcon, AttachMoney, Speed,
-  Height, ListAlt, Assessment, PhoneAndroid, EventRepeat,
+  Height, ListAlt, Assessment, PhoneAndroid, EventRepeat, Insights, FileDownload,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +19,7 @@ import { FILTROS_VACIOS, FiltrosLlantasBarra, hayFiltros, type FiltrosLlantas } 
 import { TableroRendimiento, InformeMetrica, DetalleVidas, BotonInformePDF } from '@/components/eam/RendimientoLlantas'
 import { EstadoLlantasPiso } from '@/components/eam/EstadoLlantasPiso'
 import { InformeTittanLite } from '@/components/eam/InformeTittanLite'
+import { ExportarTittanLite, TableroTittanLite } from '@/components/eam/TableroTittanLite'
 import { PlanRecambio } from '@/components/eam/PlanRecambio'
 import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
@@ -63,12 +64,15 @@ interface InspeccionHistorial {
 }
 
 type TipoInforme = 'TABLERO' | 'CPK' | 'KM' | 'KM_MM' | 'VIDAS' | 'ESTADO_FLOTA' | 'COMPOSICION' | 'HISTORIAL' | 'TITTANLITE' | 'RECAMBIO'
+  | 'LITE_TABLERO' | 'LITE_EXPORTAR'
 
 // Los de rendimiento traen sus propios filtros y descargas; la página solo les
 // pasa el periodo.
 const DE_RENDIMIENTO: TipoInforme[] = ['TABLERO', 'CPK', 'KM', 'KM_MM', 'VIDAS']
 
-const GRUPOS_INFORME = ['Rendimiento y costos', 'Estado e inspecciones'] as const
+const GRUPOS_INFORME = ['Rendimiento y costos', 'Estado e inspecciones', 'TittanLite'] as const
+// Los de TittanLite traen sus propias descargas; la página solo les pasa el periodo.
+const DE_LITE: TipoInforme[] = ['TITTANLITE', 'LITE_TABLERO', 'LITE_EXPORTAR']
 
 const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo: string; descripcion: string; icono: JSX.Element }[] = [
   {
@@ -120,10 +124,22 @@ const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo:
     icono: <Straighten />,
   },
   {
-    id: 'TITTANLITE', grupo: 'Estado e inspecciones',
-    titulo: 'Informe TittanLite',
-    descripcion: 'Lo inspeccionado en campo con la app: composición a piso, estado bueno/regular/crítico, esquema por vehículo, novedades y sincronización.',
+    id: 'LITE_TABLERO', grupo: 'TittanLite',
+    titulo: 'Tablero TittanLite',
+    descripcion: 'Resultado de las inspecciones de la app: llantas a piso por estado, profundidad, vida y reencauches, marca y medida; inspecciones por mes e inspector y pila de desecho. Clic en una barra filtra todo.',
+    icono: <Insights />,
+  },
+  {
+    id: 'TITTANLITE', grupo: 'TittanLite',
+    titulo: 'Informe TittanLite por vehículo',
+    descripcion: 'Informe PDF y Excel con el esquema de llantas de cada vehículo, novedades, observaciones y la sincronización con TittanWare.',
     icono: <PhoneAndroid />,
+  },
+  {
+    id: 'LITE_EXPORTAR', grupo: 'TittanLite',
+    titulo: 'Exportar datos de TittanLite',
+    descripcion: 'Excel masivos: todas las inspecciones tomadas (una fila por llanta) y la pila de desecho con su daño y causa.',
+    icono: <FileDownload />,
   },
   {
     id: 'RECAMBIO', grupo: 'Rendimiento y costos',
@@ -362,7 +378,7 @@ export default function EAMNeumaticosReportes() {
               <Stack direction="row" alignItems="center">
                 {rangoRapido('7 días', 7)}{rangoRapido('30 días', 30)}{rangoRapido('90 días', 90)}
               </Stack>
-              {tipo !== 'COMPOSICION' && tipo !== 'TITTANLITE' && tipo !== 'RECAMBIO' && !DE_RENDIMIENTO.includes(tipo) && (
+              {tipo !== 'COMPOSICION' && !DE_LITE.includes(tipo) && tipo !== 'RECAMBIO' && !DE_RENDIMIENTO.includes(tipo) && (
                 <TextField select size="small" label="Vehículo" value={vehId}
                   onChange={e => setVehId(e.target.value)} sx={{ minWidth: 220 }}>
                   <MenuItem value="">Toda la flota</MenuItem>
@@ -395,7 +411,7 @@ export default function EAMNeumaticosReportes() {
                 </Button>
               )}
               {tipo === 'COMPOSICION' && <BotonInformePDF tipo="COMPOSICION" disabled={cargando || !composicion.length} />}
-              {tipo !== 'TITTANLITE' && tipo !== 'RECAMBIO' && !DE_RENDIMIENTO.includes(tipo) && (
+              {!DE_LITE.includes(tipo) && tipo !== 'RECAMBIO' && !DE_RENDIMIENTO.includes(tipo) && (
                 <Button variant="contained" startIcon={<Download />} disabled={cargando}
                   onClick={generarExcel}
                   sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700 }}>
@@ -432,6 +448,8 @@ export default function EAMNeumaticosReportes() {
         {tipo === 'KM_MM' && <InformeMetrica key="km_mm" metrica="km_mm" desde={desde} hasta={hasta} />}
         {tipo === 'VIDAS' && <DetalleVidas desde={desde} hasta={hasta} />}
         {tipo === 'TITTANLITE' && <InformeTittanLite desde={desde} hasta={hasta} />}
+        {tipo === 'LITE_TABLERO' && <TableroTittanLite desde={desde} hasta={hasta} />}
+        {tipo === 'LITE_EXPORTAR' && <ExportarTittanLite desde={desde} hasta={hasta} />}
         {tipo === 'RECAMBIO' && <PlanRecambio />}
 
         {tipo === 'ESTADO_FLOTA' && (

@@ -2725,6 +2725,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/lite/exportar/desechos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exportar Desechos */
+        get: operations["exportar_desechos_api_v1_eam_lite_exportar_desechos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/exportar/inspecciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exportar Inspecciones */
+        get: operations["exportar_inspecciones_api_v1_eam_lite_exportar_inspecciones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/lite/fotos": {
         parameters: {
             query?: never;
@@ -2863,6 +2897,34 @@ export interface paths {
          *     registrar en TittanWare el movimiento que faltaba).
          */
         post: operations["resincronizar_api_v1_eam_lite_inspecciones__iid__sincronizar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/tablero/modelo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tablero Modelo
+         * @description Los hechos del tablero TittanLite, ya agrupados por las dimensiones que se
+         *     filtran en el navegador:
+         *
+         *       * piso: las llantas de la ÚLTIMA inspección Lite de cada vehículo en el
+         *         periodo (lo que hay montado según campo), por marca, medida, vida,
+         *         rango de profundidad, estado, tipo de vehículo y si tiene novedad.
+         *       * inspecciones: todas las del periodo, por mes, inspector y tipo.
+         *       * novedades: lo marcado en campo en las llantas a piso.
+         *       * desechos: las disposiciones finales registradas en Lite.
+         */
+        get: operations["tablero_modelo_api_v1_eam_lite_tablero_modelo_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -20534,6 +20596,70 @@ export interface operations {
             };
         };
     };
+    exportar_desechos_api_v1_eam_lite_exportar_desechos_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exportar_inspecciones_api_v1_eam_lite_exportar_inspecciones_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     subir_foto_lite_api_v1_eam_lite_fotos_post: {
         parameters: {
             query?: never;
@@ -20804,6 +20930,38 @@ export interface operations {
             path: {
                 iid: number;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tablero_modelo_api_v1_eam_lite_tablero_modelo_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
