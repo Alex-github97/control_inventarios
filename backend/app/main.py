@@ -897,6 +897,76 @@ async def _migrar_esquema(esquema: str) -> None:
                            "rango_critico_mm DOUBLE PRECISION DEFAULT 3.0",
                            "rango_moderado_mm DOUBLE PRECISION DEFAULT 6.0"):
             await conn.execute(text(f"ALTER TABLE eam_neumatico_config ADD COLUMN IF NOT EXISTS {definicion}"))
+        # Marcas, referencias y dimensiones son únicas sin importar mayúsculas ni
+        # espacios («Michelin», «MICHELIN», «295/80 R22.5» = «295/80R22.5»). Los
+        # duplicados que ya existían se FUSIONAN en el más antiguo (activo
+        # primero): sus referencias y profundidades pasan al que queda. Las
+        # llantas guardan la marca como texto, así que no se tocan. Después, un
+        # índice único por la clave normalizada impide que vuelvan a entrar por
+        # cualquier camino.
+        await conn.execute(text("""
+            DO $$
+            DECLARE r record;
+            BEGIN
+              -- Marcas
+              FOR r IN
+                SELECT m.id AS dup, (SELECT k.id FROM eam_marca_neumatico k
+                                     WHERE k.ambito = m.ambito AND LOWER(REGEXP_REPLACE(k.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(m.nombre, '[[:space:]]', '', 'g'))
+                                     ORDER BY k.activo DESC, k.id LIMIT 1) AS keep
+                FROM eam_marca_neumatico m
+              LOOP
+                CONTINUE WHEN r.dup = r.keep;
+                UPDATE eam_referencia_neumatico x SET marca_id = r.keep
+                 WHERE x.marca_id = r.dup
+                   AND NOT EXISTS (SELECT 1 FROM eam_referencia_neumatico y
+                                   WHERE y.marca_id = r.keep AND LOWER(REGEXP_REPLACE(y.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(x.nombre, '[[:space:]]', '', 'g')));
+                UPDATE eam_referencia_dimension rd SET referencia_id = y.id
+                  FROM eam_referencia_neumatico x, eam_referencia_neumatico y
+                 WHERE rd.referencia_id = x.id AND x.marca_id = r.dup
+                   AND y.marca_id = r.keep AND LOWER(REGEXP_REPLACE(y.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(x.nombre, '[[:space:]]', '', 'g'))
+                   AND NOT EXISTS (SELECT 1 FROM eam_referencia_dimension z
+                                   WHERE z.referencia_id = y.id AND z.dimension_id = rd.dimension_id);
+                DELETE FROM eam_marca_neumatico WHERE id = r.dup;
+              END LOOP;
+              -- Referencias dentro de una misma marca
+              FOR r IN
+                SELECT x.id AS dup, (SELECT k.id FROM eam_referencia_neumatico k
+                                     WHERE k.marca_id = x.marca_id AND LOWER(REGEXP_REPLACE(k.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(x.nombre, '[[:space:]]', '', 'g'))
+                                     ORDER BY k.activo DESC, k.id LIMIT 1) AS keep
+                FROM eam_referencia_neumatico x
+              LOOP
+                CONTINUE WHEN r.dup = r.keep;
+                UPDATE eam_referencia_dimension rd SET referencia_id = r.keep
+                 WHERE rd.referencia_id = r.dup
+                   AND NOT EXISTS (SELECT 1 FROM eam_referencia_dimension z
+                                   WHERE z.referencia_id = r.keep AND z.dimension_id = rd.dimension_id);
+                DELETE FROM eam_referencia_neumatico WHERE id = r.dup;
+              END LOOP;
+              -- Dimensiones
+              FOR r IN
+                SELECT d.id AS dup, (SELECT k.id FROM eam_dimension_neumatico k
+                                     WHERE k.ambito = d.ambito AND LOWER(REGEXP_REPLACE(k.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(d.nombre, '[[:space:]]', '', 'g'))
+                                     ORDER BY k.activo DESC, k.id LIMIT 1) AS keep
+                FROM eam_dimension_neumatico d
+              LOOP
+                CONTINUE WHEN r.dup = r.keep;
+                UPDATE eam_referencia_dimension rd SET dimension_id = r.keep
+                 WHERE rd.dimension_id = r.dup
+                   AND NOT EXISTS (SELECT 1 FROM eam_referencia_dimension z
+                                   WHERE z.dimension_id = r.keep AND z.referencia_id = rd.referencia_id);
+                DELETE FROM eam_dimension_neumatico WHERE id = r.dup;
+              END LOOP;
+            END $$;
+        """))
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_eam_marca_neumatico_clave "
+            "ON eam_marca_neumatico (ambito, LOWER(REGEXP_REPLACE(nombre, '[[:space:]]', '', 'g')))"))
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_eam_referencia_neumatico_clave "
+            "ON eam_referencia_neumatico (marca_id, LOWER(REGEXP_REPLACE(nombre, '[[:space:]]', '', 'g')))"))
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_eam_dimension_neumatico_clave "
+            "ON eam_dimension_neumatico (ambito, LOWER(REGEXP_REPLACE(nombre, '[[:space:]]', '', 'g')))"))
         # Catálogo jerárquico de llantas/bandas: las marcas, dimensiones y
         # referencias que ya estaban escritas a mano en los registros existentes
         # se suben al catálogo para no perder nada al pasar a listas cerradas.
@@ -905,37 +975,37 @@ async def _migrar_esquema(esquema: str) -> None:
             SELECT DISTINCT TRIM(marca), 'LLANTA', true, now(), now()
             FROM eam_neumatico n WHERE marca IS NOT NULL AND TRIM(marca) <> ''
               AND NOT EXISTS (SELECT 1 FROM eam_marca_neumatico m
-                              WHERE LOWER(m.nombre) = LOWER(TRIM(n.marca)) AND m.ambito = 'LLANTA')
-            ON CONFLICT (nombre, ambito) DO NOTHING
+                              WHERE LOWER(REGEXP_REPLACE(m.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.marca, '[[:space:]]', '', 'g')) AND m.ambito = 'LLANTA')
+            ON CONFLICT DO NOTHING
         """))
         await conn.execute(text("""
             INSERT INTO eam_dimension_neumatico (nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT TRIM(medida), 'LLANTA', true, now(), now()
             FROM eam_neumatico n WHERE medida IS NOT NULL AND TRIM(medida) <> ''
               AND NOT EXISTS (SELECT 1 FROM eam_dimension_neumatico d
-                              WHERE LOWER(d.nombre) = LOWER(TRIM(n.medida)) AND d.ambito = 'LLANTA')
-            ON CONFLICT (nombre, ambito) DO NOTHING
+                              WHERE LOWER(REGEXP_REPLACE(d.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.medida, '[[:space:]]', '', 'g')) AND d.ambito = 'LLANTA')
+            ON CONFLICT DO NOTHING
         """))
         await conn.execute(text("""
             INSERT INTO eam_referencia_neumatico (marca_id, nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT m.id, TRIM(n.referencia), 'LLANTA', true, now(), now()
             FROM eam_neumatico n
-            JOIN eam_marca_neumatico m ON LOWER(m.nombre) = LOWER(TRIM(n.marca)) AND m.ambito = 'LLANTA'
+            JOIN eam_marca_neumatico m ON LOWER(REGEXP_REPLACE(m.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.marca, '[[:space:]]', '', 'g')) AND m.ambito = 'LLANTA'
             WHERE n.referencia IS NOT NULL AND TRIM(n.referencia) <> ''
               AND NOT EXISTS (SELECT 1 FROM eam_referencia_neumatico r2 JOIN eam_marca_neumatico m2 ON m2.id = r2.marca_id
-                              WHERE LOWER(m2.nombre) = LOWER(TRIM(n.marca)) AND LOWER(r2.nombre) = LOWER(TRIM(n.referencia)))
-            ON CONFLICT (marca_id, nombre) DO NOTHING
+                              WHERE LOWER(REGEXP_REPLACE(m2.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.marca, '[[:space:]]', '', 'g')) AND LOWER(REGEXP_REPLACE(r2.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.referencia, '[[:space:]]', '', 'g')))
+            ON CONFLICT DO NOTHING
         """))
         # Profundidad inicial por referencia+dimensión, tomada de lo ya registrado
         await conn.execute(text("""
             INSERT INTO eam_referencia_dimension (referencia_id, dimension_id, profundidad_inicial, activo, created_at, updated_at)
             SELECT DISTINCT ON (r.id, d.id) r.id, d.id, n."profundidad_diseño", true, now(), now()
             FROM eam_neumatico n
-            JOIN eam_marca_neumatico m ON LOWER(m.nombre) = LOWER(TRIM(n.marca)) AND m.ambito = 'LLANTA'
-            JOIN eam_referencia_neumatico r ON r.marca_id = m.id AND LOWER(r.nombre) = LOWER(TRIM(n.referencia))
-            JOIN eam_dimension_neumatico d ON LOWER(d.nombre) = LOWER(TRIM(n.medida)) AND d.ambito = 'LLANTA'
+            JOIN eam_marca_neumatico m ON LOWER(REGEXP_REPLACE(m.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.marca, '[[:space:]]', '', 'g')) AND m.ambito = 'LLANTA'
+            JOIN eam_referencia_neumatico r ON r.marca_id = m.id AND LOWER(REGEXP_REPLACE(r.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.referencia, '[[:space:]]', '', 'g'))
+            JOIN eam_dimension_neumatico d ON LOWER(REGEXP_REPLACE(d.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(n.medida, '[[:space:]]', '', 'g')) AND d.ambito = 'LLANTA'
             WHERE n."profundidad_diseño" IS NOT NULL
-            ON CONFLICT (referencia_id, dimension_id) DO NOTHING
+            ON CONFLICT DO NOTHING
         """))
         # Mismo criterio para las bandas de reencauche ya registradas
         await conn.execute(text("""
@@ -943,16 +1013,16 @@ async def _migrar_esquema(esquema: str) -> None:
             SELECT DISTINCT TRIM(marca), 'BANDA', true, now(), now()
             FROM eam_banda_reencauche b WHERE marca IS NOT NULL AND TRIM(marca) <> ''
               AND NOT EXISTS (SELECT 1 FROM eam_marca_neumatico m
-                              WHERE LOWER(m.nombre) = LOWER(TRIM(b.marca)) AND m.ambito = 'BANDA')
-            ON CONFLICT (nombre, ambito) DO NOTHING
+                              WHERE LOWER(REGEXP_REPLACE(m.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(b.marca, '[[:space:]]', '', 'g')) AND m.ambito = 'BANDA')
+            ON CONFLICT DO NOTHING
         """))
         await conn.execute(text("""
             INSERT INTO eam_dimension_neumatico (nombre, ambito, activo, created_at, updated_at)
             SELECT DISTINCT TRIM(dimension), 'BANDA', true, now(), now()
             FROM eam_banda_reencauche b WHERE dimension IS NOT NULL AND TRIM(dimension) <> ''
               AND NOT EXISTS (SELECT 1 FROM eam_dimension_neumatico d
-                              WHERE LOWER(d.nombre) = LOWER(TRIM(b.dimension)) AND d.ambito = 'BANDA')
-            ON CONFLICT (nombre, ambito) DO NOTHING
+                              WHERE LOWER(REGEXP_REPLACE(d.nombre, '[[:space:]]', '', 'g')) = LOWER(REGEXP_REPLACE(b.dimension, '[[:space:]]', '', 'g')) AND d.ambito = 'BANDA')
+            ON CONFLICT DO NOTHING
         """))
         # Configuración de llantas por eje (no solo un número global de ejes):
         # cuántas llantas trae cada eje individual, para representar vehículos

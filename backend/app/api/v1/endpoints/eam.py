@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Dict, List, Optional
@@ -2524,7 +2525,7 @@ async def list_marcas_neu(ambito: str = "LLANTA", db: AsyncSession = Depends(get
 @router.post("/neumaticos/catalogo/marcas", response_model=MarcaNeuResponse)
 async def crear_marca_neu(data: MarcaNeuCreate, db: AsyncSession = Depends(get_db)):
     existe = (await db.execute(select(EAMMarcaNeumatico).where(
-        func.lower(EAMMarcaNeumatico.nombre) == data.nombre.strip().lower(),
+        _clave_catalogo(EAMMarcaNeumatico.nombre) == _clave_texto(data.nombre),
         EAMMarcaNeumatico.ambito == data.ambito.upper(),
     ).limit(1))).scalar_one_or_none()
     if existe:
@@ -2561,7 +2562,7 @@ async def list_dimensiones_neu(ambito: str = "LLANTA", db: AsyncSession = Depend
 @router.post("/neumaticos/catalogo/dimensiones", response_model=DimensionNeuResponse)
 async def crear_dimension_neu(data: DimensionNeuCreate, db: AsyncSession = Depends(get_db)):
     existe = (await db.execute(select(EAMDimensionNeumatico).where(
-        func.lower(EAMDimensionNeumatico.nombre) == data.nombre.strip().lower(),
+        _clave_catalogo(EAMDimensionNeumatico.nombre) == _clave_texto(data.nombre),
         EAMDimensionNeumatico.ambito == data.ambito.upper(),
     ).limit(1))).scalar_one_or_none()
     if existe:
@@ -2612,7 +2613,7 @@ async def crear_referencia_neu(data: ReferenciaNeuCreate, db: AsyncSession = Dep
         raise HTTPException(404, "La marca no existe")
     existe = (await db.execute(select(EAMReferenciaNeumatico).where(
         EAMReferenciaNeumatico.marca_id == data.marca_id,
-        func.lower(EAMReferenciaNeumatico.nombre) == data.nombre.strip().lower(),
+        _clave_catalogo(EAMReferenciaNeumatico.nombre) == _clave_texto(data.nombre),
     ).limit(1))).scalar_one_or_none()
     if existe:
         raise HTTPException(409, "La referencia '%s' ya existe para la marca %s" % (existe.nombre, marca.nombre))
@@ -2687,6 +2688,17 @@ async def eliminar_referencia_dimension(rdid: int, db: AsyncSession = Depends(ge
         await db.commit()
 
 
+def _clave_texto(valor) -> str:
+    """Clave con la que se comparan marcas, referencias y dimensiones: sin
+    mayúsculas ni espacios («295/80 R22.5» = «295/80r22.5»). Es la misma del
+    índice único de la base."""
+    return re.sub(r"\s", "", str(valor or "")).lower()
+
+
+def _clave_catalogo(columna):
+    return func.lower(func.regexp_replace(columna, "[[:space:]]", "", "g"))
+
+
 async def _resolver_catalogo_llanta(
     db: AsyncSession, marca, referencia, medida, ambito: str = "LLANTA",
 ):
@@ -2707,14 +2719,14 @@ async def _resolver_catalogo_llanta(
         return sorted(filas, key=lambda f: (f.nombre != texto, f.id))
 
     marcas = _preferir((await db.execute(select(EAMMarcaNeumatico).where(
-        func.lower(EAMMarcaNeumatico.nombre) == str(marca).strip().lower(),
+        _clave_catalogo(EAMMarcaNeumatico.nombre) == _clave_texto(marca),
         EAMMarcaNeumatico.ambito == ambito, EAMMarcaNeumatico.activo == True,
     ))).scalars().all(), marca)
     if not marcas:
         raise ValueError("La marca '%s' no esta en el catalogo" % marca)
 
     dims = _preferir((await db.execute(select(EAMDimensionNeumatico).where(
-        func.lower(EAMDimensionNeumatico.nombre) == str(medida).strip().lower(),
+        _clave_catalogo(EAMDimensionNeumatico.nombre) == _clave_texto(medida),
         EAMDimensionNeumatico.ambito == ambito, EAMDimensionNeumatico.activo == True,
     ))).scalars().all(), medida)
     if not dims:
@@ -2724,7 +2736,7 @@ async def _resolver_catalogo_llanta(
         raise ValueError("La referencia es obligatoria")
     refs = _preferir((await db.execute(select(EAMReferenciaNeumatico).where(
         EAMReferenciaNeumatico.marca_id.in_([m.id for m in marcas]),
-        func.lower(EAMReferenciaNeumatico.nombre) == str(referencia).strip().lower(),
+        _clave_catalogo(EAMReferenciaNeumatico.nombre) == _clave_texto(referencia),
         EAMReferenciaNeumatico.activo == True,
     ))).scalars().all(), referencia)
     if not refs:
