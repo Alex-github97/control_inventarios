@@ -33,6 +33,16 @@ interface Tablero {
   por_marca: FilaCruce[]
   por_referencia: FilaCruce[]
   mensual: Mes[]
+  por_ubicacion?: Reparto[]
+  por_categoria?: Reparto[]
+  por_causa?: Reparto[]
+  por_motivo_dano?: Reparto[]
+  por_responsable?: Reparto[]
+  por_medida?: FilaCruce[]
+  disposicion?: {
+    registradas: number; profundidad_remanente: number | null; mm_desperdiciados: number | null
+    con_reparaciones: number; regrabadas: number; con_fotos: number
+  } | null
 }
 
 /** Lo que se eligió en el tablero para filtrar la lista. 0 = «sin motivo». */
@@ -227,6 +237,69 @@ export function TableroDescarte({ filtros, desde, hasta, onSalto }: {
           </Card>
         </Grid>
       </Grid>
+
+      {(data.por_ubicacion?.length ?? 0) > 0 && (
+        <>
+          <Box sx={{ pt: 1 }}>
+            <Typography fontWeight={800} fontSize={15}>Pila de desechos: por qué se perdió cada carcasa</Typography>
+            <Typography fontSize={11.5} color="text.secondary">
+              Sobre las {n((data.por_ubicacion ?? []).reduce((t, r) => t + r.cantidad, 0))} bajas con código de daño
+              clasificado; las que no lo tienen no entran en estos repartos.
+            </Typography>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Barras titulo="Dónde está el daño" filas={data.por_ubicacion ?? []}
+                ayuda="Ubicación del daño en la llanta, según el catálogo." />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Barras titulo="Categoría de daño" filas={data.por_categoria ?? []}
+                ayuda="La avería: separación, desgaste, corte…" />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Barras titulo="Motivo" filas={data.por_motivo_dano ?? []}
+                ayuda="Mala reparación, daño accidental, operativo, calor…" />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Barras titulo="Responsable" filas={data.por_responsable ?? []}
+                ayuda="A quién se atribuye: operador, tercero, mantenimiento, fortuito." />
+            </Grid>
+          </Grid>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Barras titulo="Daños más recurrentes (causa)" filas={(data.por_causa ?? []).slice(0, 12)}
+                ayuda="La causa concreta de cada código de daño." />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Barras titulo="Por dimensión" filas={(data.por_medida ?? []).map(f => ({
+                id: null, nombre: f.categoria, cantidad: f.total,
+                porcentaje: data.total ? Math.round((1000 * f.total) / data.total) / 10 : 0,
+              }))} ayuda="Medidas de las llantas desechadas." />
+            </Grid>
+          </Grid>
+        </>
+      )}
+      {data.disposicion && data.disposicion.registradas > 0 && (
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Kpi titulo="Con examen de disposición" valor={n(data.disposicion.registradas)}
+              nota={`${data.disposicion.con_fotos} con fotos`} />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Kpi titulo="Profundidad remanente promedio"
+              valor={data.disposicion.profundidad_remanente != null ? `${data.disposicion.profundidad_remanente} mm` : '—'}
+              nota="caucho que se botó con la carcasa" color={ROJO} />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Kpi titulo="mm desperdiciados" valor={data.disposicion.mm_desperdiciados != null ? n(Math.round(data.disposicion.mm_desperdiciados)) : '—'}
+              nota="sobre el mínimo legal, sumados" />
+          </Grid>
+          <Grid size={{ xs: 6, md: 3 }}>
+            <Kpi titulo="Con reparaciones" valor={n(data.disposicion.con_reparaciones)}
+              nota={`${n(data.disposicion.regrabadas)} regrabadas`} />
+          </Grid>
+        </Grid>
+      )}
 
       <Cruce titulo="Daños por marca" filas={data.por_marca} danos={data.por_dano}
         onFila={f => onSalto({ etiqueta: `Marca: ${f.categoria}`, marca: marcaDe(f) })} />

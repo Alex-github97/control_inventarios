@@ -521,6 +521,11 @@ class DanoNeumaticoCreate(BaseModel):
     descripcion: Optional[str] = None
     accion: str = "INSPECCION"    # REENCAUCHE/DESCARTE/INSPECCION
     activo: bool = True
+    ubicacion: Optional[str] = None
+    categoria: Optional[str] = None
+    causa: Optional[str] = None
+    motivo: Optional[str] = None
+    responsable: Optional[str] = None
 
 class DanoNeumaticoResponse(DanoNeumaticoCreate):
     model_config = ConfigDict(from_attributes=True)

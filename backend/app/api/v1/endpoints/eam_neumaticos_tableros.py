@@ -101,6 +101,16 @@ class Mes(BaseModel):
     por_dano: Dict[str, int]
 
 
+class ResumenDisposicion(BaseModel):
+    """Lo que solo se sabe al examinar la carcasa (registros de disposición final)."""
+    registradas: int
+    profundidad_remanente: Optional[float] = None     # mm promedio de la menor medición
+    mm_desperdiciados: Optional[float] = None         # remanente sobre el mínimo legal, sumado
+    con_reparaciones: int = 0
+    regrabadas: int = 0
+    con_fotos: int = 0
+
+
 class TableroDescarte(BaseModel):
     total: int
     ir: IndiceReencauche
@@ -109,6 +119,15 @@ class TableroDescarte(BaseModel):
     por_marca: List[FilaCruce]
     por_referencia: List[FilaCruce]
     mensual: List[Mes]
+    # Ejes del catálogo de daños: dónde, qué avería, por qué, qué grupo y de quién.
+    por_ubicacion: List[Reparto] = []
+    por_categoria: List[Reparto] = []
+    por_causa: List[Reparto] = []
+    por_motivo_dano: List[Reparto] = []
+    por_responsable: List[Reparto] = []
+    por_medida: List[FilaCruce] = []
+    por_vida: List[Reparto] = []
+    disposicion: Optional[ResumenDisposicion] = None
 
 
 class FilaParque(BaseModel):
@@ -216,7 +235,8 @@ async def tablero_descarte(
     if hasta:
         donde.append(N.fecha_baja <= hasta)
 
-    danos = {d.id: d.nombre for d in (await db.execute(select(EAMDanoNeumaticoCatalogo))).scalars()}
+    catalogo = {d.id: d for d in (await db.execute(select(EAMDanoNeumaticoCatalogo))).scalars()}
+    danos = {k: (f"{d.codigo} · {d.nombre}" if d.codigo else d.nombre) for k, d in catalogo.items()}
     motivos = {m.id: m.nombre for m in (await db.execute(select(EAMMotivoFinVida))).scalars()}
 
     por_dano = {f_.d: f_.n for f_ in (await db.execute(
@@ -268,10 +288,62 @@ async def tablero_descarte(
         m.total += fila.n
         m.por_dano[_clave_dano(fila.d)] = m.por_dano.get(_clave_dano(fila.d), 0) + fila.n
 
+    def por_eje(atributo: str) -> List[Reparto]:
+        import unicodedata
+        conteo: Dict[str, int] = defaultdict(int)
+        rotulo: Dict[str, str] = {}
+        for d, n_ in por_dano.items():
+            valor = getattr(catalogo.get(d), atributo, None) if d is not None else None
+            texto = " ".join((valor or "").strip().upper().split()) or SIN_DATO
+            # «MALA REPARACIÓN» y «MALA REPARACION» son el mismo grupo.
+            k = unicodedata.normalize("NFD", texto).encode("ascii", "ignore").decode()
+            conteo[k] += n_
+            if k not in rotulo or texto != k:      # se prefiere el rótulo con tilde
+                rotulo[k] = texto
+        # Las bajas sin código clasificado no dicen nada de este eje: se dejan
+        # fuera y el porcentaje es sobre las clasificadas.
+        conteo = {rotulo[k]: v for k, v in conteo.items() if rotulo[k] != SIN_DATO}
+        base = sum(conteo.values())
+        salida = [Reparto(nombre=k, cantidad=v, porcentaje=round(100 * v / base, 1) if base else 0.0)
+                  for k, v in conteo.items()]
+        return sorted(salida, key=lambda r: (-r.cantidad, r.nombre))
+
+    por_vida = {f_.r: f_.n for f_ in (await db.execute(
+        select(REENC.label("r"), func.count().label("n")).where(*donde).group_by(REENC))).all()}
+    vidas = [Reparto(id=r, nombre="Original" if r == 0 else f"Reencauche {r}", cantidad=c,
+                     porcentaje=round(100 * c / total, 1) if total else 0.0) for r, c in sorted(por_vida.items())]
+
+    # Disposición final: solo las llantas del filtro que tienen su registro.
+    from app.infrastructure.models.eam import EAMNeumaticoDisposicion as Disp, EAMNeumaticoFoto as Foto
+    menor = func.least(func.coalesce(Disp.profundidad_interna, 99), func.coalesce(Disp.profundidad_central, 99),
+                       func.coalesce(Disp.profundidad_externa, 99))
+    medida = func.nullif(menor, 99)
+    cfg = await db.get(EAMNeumaticoConfig, 1)
+    minimo = float(cfg.profundidad_minima) if cfg and cfg.profundidad_minima is not None else 3.0
+    con_foto = select(Foto.neumatico_id).distinct().subquery()
+    r = (await db.execute(
+        select(func.count(), func.avg(medida), func.sum(func.greatest(medida - minimo, 0)),
+               func.count().filter(Disp.reparaciones > 0), func.count().filter(Disp.regrabada.is_(True)),
+               func.count(con_foto.c.neumatico_id))
+        .select_from(Disp).join(N, N.id == Disp.neumatico_id)
+        .outerjoin(con_foto, con_foto.c.neumatico_id == N.id).where(*donde))).one()
+    disposicion = ResumenDisposicion(
+        registradas=r[0], profundidad_remanente=round(float(r[1]), 1) if r[1] is not None else None,
+        mm_desperdiciados=round(float(r[2]), 1) if r[2] is not None else None,
+        con_reparaciones=r[3] or 0, regrabadas=r[4] or 0, con_fotos=r[5] or 0)
+
     return TableroDescarte(
         total=total,
         ir=await _indice(db, donde),
         por_dano=_reparto(por_dano, danos, total),
+        por_ubicacion=por_eje("ubicacion"),
+        por_categoria=por_eje("categoria"),
+        por_causa=por_eje("causa"),
+        por_motivo_dano=por_eje("motivo"),
+        por_responsable=por_eje("responsable"),
+        por_medida=await cruce([clave(N.medida)], [N.medida], TOPE_MARCAS),
+        por_vida=vidas,
+        disposicion=disposicion,
         por_motivo_fin=_reparto(por_motivo, motivos, total),
         por_marca=await cruce([clave(N.marca)], [N.marca], TOPE_MARCAS),
         por_referencia=await cruce([clave(N.marca), clave(N.referencia)], [N.marca, N.referencia],

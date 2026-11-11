@@ -260,6 +260,35 @@ async def _resumen_actualizar(c: Contexto, a: dict) -> str:
         f"Observaciones: {a['observaciones']}" if a.get("observaciones") else None] if p)
 
 
+def _construir_disposicion(a: dict):
+    return "POST", "/api/v1/eam/neumaticos/disposicion", _limpio({
+        "codigo": str(a["codigo"]).strip(), "fecha": _cuando(a.get("fecha")), "dano_codigo": a.get("dano_codigo"),
+        "profundidad_interna": a.get("profundidad_interna"), "profundidad_central": a.get("profundidad_central"),
+        "profundidad_externa": a.get("profundidad_externa"), "reparaciones": a.get("reparaciones"),
+        "ubicacion_actual": a.get("ubicacion_actual"), "observaciones": a.get("observaciones"),
+        "marca": a.get("marca"), "referencia": a.get("referencia"), "medida": a.get("medida"),
+        "reencauches": a.get("reencauches")})
+
+
+async def _resumen_disposicion(c: Contexto, a: dict) -> str:
+    llanta = await _filas(c.db, "SELECT codigo, marca, referencia, medida, estado FROM eam_neumatico WHERE codigo = :c",
+                          {"c": str(a.get("codigo") or "").strip()})
+    dano = await _filas(c.db, """SELECT codigo, nombre, ubicacion, responsable FROM eam_dano_neumatico_catalogo
+        WHERE upper(codigo) = upper(:c)""", {"c": str(a.get("dano_codigo") or "").strip()})
+    l = llanta[0] if llanta else None
+    prof = [a.get(k) for k in ("profundidad_interna", "profundidad_central", "profundidad_externa")]
+    return " · ".join(x for x in [
+        f"Disposición final de la llanta {a.get('codigo')}",
+        (f"{l['marca'] or ''} {l['referencia'] or ''} {l['medida'] or ''}".strip()
+         + (" (ya dada de baja)" if l["estado"] == "BAJA" else " (se dará de baja)")) if l
+        else "NO EXISTE: se creará dada de baja",
+        f"Daño {dano[0]['codigo']}: {dano[0]['nombre']} ({dano[0]['ubicacion'] or ''}, {dano[0]['responsable'] or ''})"
+        if dano else f"CÓDIGO DE DAÑO «{a.get('dano_codigo')}» NO ESTÁ EN EL CATÁLOGO",
+        "Profundidades I/C/E: " + " / ".join(str(v) if v is not None else "—" for v in prof) if any(v is not None for v in prof) else None,
+        f"Reparaciones: {a['reparaciones']}" if a.get("reparaciones") is not None else None,
+        a.get("observaciones")] if x)
+
+
 def _construir_inspeccion(a: dict):
     return "POST", f"/api/v1/eam/neumaticos/{int(a['neumatico_id'])}/inspecciones", _limpio({
         "fecha": _cuando(a.get("fecha")), "profundidad_izq": a.get("profundidad_externa"),
@@ -288,6 +317,9 @@ def _destinos_cmms() -> None:
     importar.registrar(importar.Destino("muestras_aceite", "Muestras de aceite (con resultados de laboratorio)",
                                         "/api/v1/eam/lube/importar/muestras/plantilla",
                                         "/api/v1/eam/lube/importar/muestras", ("eam",)))
+    importar.registrar(importar.Destino("llantas_disposicion", "Disposición final de llantas (pila de desechos)",
+                                        "/api/v1/eam/neumaticos/disposicion/importar/plantilla",
+                                        "/api/v1/eam/neumaticos/disposicion/importar", ("eam",)))
     for ruta, cfg in CATALOGOS.items():
         importar.registrar(importar.Destino(f"cmms_{ruta}", f"Catálogo del CMMS: {cfg['titulo']}",
                                             f"/api/v1/eam/catalogos/{ruta}/plantilla",
@@ -379,6 +411,17 @@ HERRAMIENTAS: List[Herramienta] = [
                       "observaciones": {"type": "string"}, "tecnico": {"type": "string"},
                       "fecha": {"type": "string"}}, ["neumatico_id"]),
                 permiso=EAM, destructiva=True, construir=_construir_inspeccion, resumir=_resumen_inspeccion),
+    Herramienta("registrar_disposicion_llanta",
+                "Registra la disposición final de una llanta desechada: código de la llanta, código de daño del "
+                "catálogo (A1-1, E1-2, G3…), profundidades y reparaciones. Si la llanta tiene seguimiento se da de "
+                "baja; si no existe se crea dada de baja (entonces pide marca, referencia y medida).",
+                _obj({"codigo": {"type": "string"}, "dano_codigo": {"type": "string"},
+                      "profundidad_interna": {"type": "number"}, "profundidad_central": {"type": "number"},
+                      "profundidad_externa": {"type": "number"}, "reparaciones": {"type": "integer"},
+                      "ubicacion_actual": {"type": "string"}, "observaciones": {"type": "string"},
+                      "marca": {"type": "string"}, "referencia": {"type": "string"}, "medida": {"type": "string"},
+                      "reencauches": {"type": "integer"}, "fecha": {"type": "string"}}, ["codigo", "dano_codigo"]),
+                permiso=EAM, destructiva=True, construir=_construir_disposicion, resumir=_resumen_disposicion),
     Herramienta("importar_excel",
                 "Importa el archivo adjunto por el cargue masivo de la plataforma. `destino` es uno de los que "
                 "devuelve ver_adjunto (catálogos del CMMS, muestras de aceite, viajes del TMS, ajustes y traslados "

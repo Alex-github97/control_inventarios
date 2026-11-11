@@ -4491,6 +4491,171 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/neumaticos/disposicion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Disposiciones */
+        get: operations["listar_disposiciones_api_v1_eam_neumaticos_disposicion_get"];
+        put?: never;
+        /** Crear Disposicion */
+        post: operations["crear_disposicion_api_v1_eam_neumaticos_disposicion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/catalogo-referencia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cargar Catalogo Referencia
+         * @description Agrega los códigos de referencia que la cuenta no tenga. No modifica los
+         *     que ya existen: si la cuenta personalizó un código, se respeta.
+         */
+        post: operations["cargar_catalogo_referencia_api_v1_eam_neumaticos_disposicion_catalogo_referencia_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/fotos/{fid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Borrar Foto */
+        delete: operations["borrar_foto_api_v1_eam_neumaticos_disposicion_fotos__fid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/fotos/{fid}/archivo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Foto */
+        get: operations["ver_foto_api_v1_eam_neumaticos_disposicion_fotos__fid__archivo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/importar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Importar
+         * @description Una disposición por fila. Las filas con error no se graban y se informan
+         *     con su número; las demás sí.
+         */
+        post: operations["importar_api_v1_eam_neumaticos_disposicion_importar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/importar/plantilla": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plantilla Importar */
+        get: operations["plantilla_importar_api_v1_eam_neumaticos_disposicion_importar_plantilla_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/llanta/{nid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Disposicion De Llanta
+         * @description Para el historial de la llanta: su disposición (si la tiene) y sus fotos.
+         */
+        get: operations["disposicion_de_llanta_api_v1_eam_neumaticos_disposicion_llanta__nid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/llanta/{nid}/fotos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subir Fotos */
+        post: operations["subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/disposicion/{did}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Disposicion */
+        get: operations["ver_disposicion_api_v1_eam_neumaticos_disposicion__did__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/neumaticos/esquemas": {
         parameters: {
             query?: never;
@@ -6961,6 +7126,16 @@ export interface components {
             /** Respuesta Id */
             respuesta_id?: number | null;
         };
+        /** Body_subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post */
+        Body_subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post: {
+            /** Archivos */
+            archivos: string[];
+            /**
+             * Tipo
+             * @default OTRA
+             */
+            tipo: string;
+        };
         /** Body_subir_logo_api_v1_auth_empresa_logo_post */
         Body_subir_logo_api_v1_auth_empresa_logo_post: {
             /**
@@ -8064,17 +8239,27 @@ export interface components {
              * @default true
              */
             activo: boolean;
+            /** Categoria */
+            categoria?: string | null;
+            /** Causa */
+            causa?: string | null;
             /** Codigo */
             codigo: string;
             /** Descripcion */
             descripcion?: string | null;
+            /** Motivo */
+            motivo?: string | null;
             /** Nombre */
             nombre: string;
+            /** Responsable */
+            responsable?: string | null;
             /**
              * Severidad
              * @default MODERADO
              */
             severidad: string;
+            /** Ubicacion */
+            ubicacion?: string | null;
         };
         /** DanoNeumaticoResponse */
         DanoNeumaticoResponse: {
@@ -8088,19 +8273,29 @@ export interface components {
              * @default true
              */
             activo: boolean;
+            /** Categoria */
+            categoria?: string | null;
+            /** Causa */
+            causa?: string | null;
             /** Codigo */
             codigo: string;
             /** Descripcion */
             descripcion?: string | null;
             /** Id */
             id: number;
+            /** Motivo */
+            motivo?: string | null;
             /** Nombre */
             nombre: string;
+            /** Responsable */
+            responsable?: string | null;
             /**
              * Severidad
              * @default MODERADO
              */
             severidad: string;
+            /** Ubicacion */
+            ubicacion?: string | null;
         };
         /** DatosDispositivo */
         DatosDispositivo: {
@@ -8222,6 +8417,62 @@ export interface components {
             grupos: components["schemas"]["GrupoRendimiento"][];
             /** Nombre */
             nombre: string;
+        };
+        /** DisposicionIn */
+        DisposicionIn: {
+            /** Codigo */
+            codigo?: string | null;
+            /** Dano Codigo */
+            dano_codigo?: string | null;
+            /** Dano Id */
+            dano_id?: number | null;
+            /** Diseno Reencauche */
+            diseno_reencauche?: string | null;
+            /** Dot */
+            dot?: string | null;
+            /**
+             * Fecha
+             * Format: date-time
+             */
+            fecha: string;
+            /** Km Odometro */
+            km_odometro?: number | null;
+            /** Marca */
+            marca?: string | null;
+            /** Medida */
+            medida?: string | null;
+            /** Motivo Fin Vida Id */
+            motivo_fin_vida_id?: number | null;
+            /** Neumatico Id */
+            neumatico_id?: number | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /**
+             * Origen
+             * @default TITTANWARE
+             */
+            origen: string;
+            /** Profundidad Central */
+            profundidad_central?: number | null;
+            /** Profundidad Externa */
+            profundidad_externa?: number | null;
+            /** Profundidad Interna */
+            profundidad_interna?: number | null;
+            /** Rechazo */
+            rechazo?: string | null;
+            /** Reencauches */
+            reencauches?: number | null;
+            /** Referencia */
+            referencia?: string | null;
+            /**
+             * Regrabada
+             * @default false
+             */
+            regrabada: boolean;
+            /** Reparaciones */
+            reparaciones?: number | null;
+            /** Ubicacion Actual */
+            ubicacion_actual?: string | null;
         };
         /** DispositivoResponse */
         DispositivoResponse: {
@@ -11693,6 +11944,33 @@ export interface components {
             /** Valor Texto */
             valor_texto?: string | null;
         };
+        /**
+         * ResumenDisposicion
+         * @description Lo que solo se sabe al examinar la carcasa (registros de disposición final).
+         */
+        ResumenDisposicion: {
+            /**
+             * Con Fotos
+             * @default 0
+             */
+            con_fotos: number;
+            /**
+             * Con Reparaciones
+             * @default 0
+             */
+            con_reparaciones: number;
+            /** Mm Desperdiciados */
+            mm_desperdiciados?: number | null;
+            /** Profundidad Remanente */
+            profundidad_remanente?: number | null;
+            /** Registradas */
+            registradas: number;
+            /**
+             * Regrabadas
+             * @default 0
+             */
+            regrabadas: number;
+        };
         /** ResumenHistorial */
         ResumenHistorial: {
             /** Inicio Vida */
@@ -11921,17 +12199,53 @@ export interface components {
         };
         /** TableroDescarte */
         TableroDescarte: {
+            disposicion?: components["schemas"]["ResumenDisposicion"] | null;
             ir: components["schemas"]["IndiceReencauche"];
             /** Mensual */
             mensual: components["schemas"]["Mes"][];
+            /**
+             * Por Categoria
+             * @default []
+             */
+            por_categoria: components["schemas"]["Reparto"][];
+            /**
+             * Por Causa
+             * @default []
+             */
+            por_causa: components["schemas"]["Reparto"][];
             /** Por Dano */
             por_dano: components["schemas"]["Reparto"][];
             /** Por Marca */
             por_marca: components["schemas"]["FilaCruce"][];
+            /**
+             * Por Medida
+             * @default []
+             */
+            por_medida: components["schemas"]["FilaCruce"][];
+            /**
+             * Por Motivo Dano
+             * @default []
+             */
+            por_motivo_dano: components["schemas"]["Reparto"][];
             /** Por Motivo Fin */
             por_motivo_fin: components["schemas"]["Reparto"][];
             /** Por Referencia */
             por_referencia: components["schemas"]["FilaCruce"][];
+            /**
+             * Por Responsable
+             * @default []
+             */
+            por_responsable: components["schemas"]["Reparto"][];
+            /**
+             * Por Ubicacion
+             * @default []
+             */
+            por_ubicacion: components["schemas"]["Reparto"][];
+            /**
+             * Por Vida
+             * @default []
+             */
+            por_vida: components["schemas"]["Reparto"][];
             /** Total */
             total: number;
         };
@@ -23808,6 +24122,309 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NeumaticResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_disposiciones_api_v1_eam_neumaticos_disposicion_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                dano_id?: number | null;
+                marca?: string | null;
+                /** @description Código de llanta, marca, referencia o código de daño */
+                buscar?: string | null;
+                limite?: number;
+                desplazamiento?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_disposicion_api_v1_eam_neumaticos_disposicion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisposicionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cargar_catalogo_referencia_api_v1_eam_neumaticos_disposicion_catalogo_referencia_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    borrar_foto_api_v1_eam_neumaticos_disposicion_fotos__fid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_foto_api_v1_eam_neumaticos_disposicion_fotos__fid__archivo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    importar_api_v1_eam_neumaticos_disposicion_importar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: Record<string, never>[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plantilla_importar_api_v1_eam_neumaticos_disposicion_importar_plantilla_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    disposicion_de_llanta_api_v1_eam_neumaticos_disposicion_llanta__nid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nid: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_disposicion_api_v1_eam_neumaticos_disposicion__did__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                did: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

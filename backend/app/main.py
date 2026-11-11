@@ -1201,6 +1201,12 @@ async def _migrar_esquema(esquema: str) -> None:
             # aceite, y con qué lubricante se hizo cada adición.
             ("eam_lube_carga", "intervalo_cambio", "DOUBLE PRECISION"),
             ("eam_lube_relleno", "producto_id", "INTEGER REFERENCES eam_lube_producto(id)"),
+            # Llantas: clasificación del daño para la disposición final.
+            ("eam_dano_neumatico_catalogo", "ubicacion", "VARCHAR(60)"),
+            ("eam_dano_neumatico_catalogo", "categoria", "VARCHAR(120)"),
+            ("eam_dano_neumatico_catalogo", "causa", "VARCHAR(200)"),
+            ("eam_dano_neumatico_catalogo", "motivo", "VARCHAR(100)"),
+            ("eam_dano_neumatico_catalogo", "responsable", "VARCHAR(60)"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

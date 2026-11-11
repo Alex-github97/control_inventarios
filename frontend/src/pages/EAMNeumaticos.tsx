@@ -37,6 +37,7 @@ import { mensajeDeError } from '@/utils/errorApi'
 import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
 import { FILTROS_VACIOS, FiltrosLlantasBarra, type FiltrosLlantas } from '@/components/eam/FiltrosLlantas'
 import { TableroDescarte, type SaltoDescarte } from '@/components/eam/TableroDescarte'
+import { CatalogoDanosDisposicion, FotosLlanta, ListaDisposiciones } from '@/components/eam/DisposicionFinal'
 import { ReglasSugerencia, SugerenciasVehiculo, UmbralesNovedad } from '@/components/eam/SugerenciasLlantas'
 
 /** Filas por página en las listas que pueden crecer sin tope (descarte, consulta, bitácora). */
@@ -2990,6 +2991,7 @@ export default function EAMNeumaticos() {
                 onSalto={s => { setDescSalto(s); setDescPag(0) }} />
             </CardContent>
           </Card>
+          <ListaDisposiciones desde={descDesde} hasta={descHasta} />
           <Stack direction="row" justifyContent="space-between" gap={1} flexWrap="wrap">
             <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
             {descSalto && (
@@ -3251,39 +3253,8 @@ export default function EAMNeumaticos() {
             {/* Reglas de sugerencia y umbrales de novedad (informe de flota) */}
             <Grid size={{ xs: 12 }}><ReglasSugerencia /></Grid>
             <Grid size={{ xs: 12 }}><UmbralesNovedad /></Grid>
-            {/* Catálogo de daños */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card sx={{ bgcolor: '#FFFFFF' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
-                    <Recycling sx={{ color: EAM_DARK }} /><Typography fontWeight={700}>Catálogo de daños / descarte</Typography>
-                  </Stack>
-                  <Grid container spacing={1} mb={1.5}>
-                    <Grid size={{ xs: 3 }}><TextField label="Código" size="small" fullWidth value={danoForm.codigo} onChange={e => setDanoForm(f => ({ ...f, codigo: e.target.value }))} /></Grid>
-                    <Grid size={{ xs: 5 }}><TextField label="Nombre" size="small" fullWidth value={danoForm.nombre} onChange={e => setDanoForm(f => ({ ...f, nombre: e.target.value }))} /></Grid>
-                    <Grid size={{ xs: 4 }}><TextField select label="Severidad" size="small" fullWidth value={danoForm.severidad} onChange={e => setDanoForm(f => ({ ...f, severidad: e.target.value }))}>{['LEVE', 'MODERADO', 'GRAVE'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}</TextField></Grid>
-                    <Grid size={{ xs: 8 }}><TextField select label="Acción sugerida" size="small" fullWidth value={danoForm.accion} onChange={e => setDanoForm(f => ({ ...f, accion: e.target.value }))}>{['INSPECCION', 'REENCAUCHE', 'DESCARTE'].map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}</TextField></Grid>
-                    <Grid size={{ xs: 4 }} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                      <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!danoForm.codigo || !danoForm.nombre || mutDano.isPending} onClick={() => mutDano.mutate({ ...danoForm })} sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK } }}>Agregar</Button>
-                    </Grid>
-                  </Grid>
-                  <Table size="small">
-                    <TableHead><TableRow>{['Nombre', 'Severidad', 'Acción', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
-                    <TableBody>
-                      {danos.map(d => (
-                        <TableRow key={d.id} hover>
-                          <TableCell>{d.nombre}</TableCell>
-                          <TableCell><Chip size="small" label={d.severidad} color={d.severidad === 'GRAVE' ? 'error' : d.severidad === 'MODERADO' ? 'warning' : 'default'} /></TableCell>
-                          <TableCell>{d.accion}</TableCell>
-                          <TableCell align="right"><IconButton size="small" color="error" onClick={() => mutDanoDel.mutate(d.id)}><DeleteForever sx={{ fontSize: 16 }} /></IconButton></TableCell>
-                        </TableRow>
-                      ))}
-                      {danos.length === 0 && <TableRow><TableCell colSpan={4} align="center"><Typography color="text.secondary" py={1}>Sin daños configurados</Typography></TableCell></TableRow>}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </Grid>
+            {/* Catálogo de daños, con la clasificación de la disposición final */}
+            <Grid size={{ xs: 12 }}><CatalogoDanosDisposicion /></Grid>
             <Grid size={{ xs: 12 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
                 <CardContent>
@@ -4829,6 +4800,12 @@ export default function EAMNeumaticos() {
             <IconButton onClick={() => { setHistTire(null); setHistVista('TODO') }} sx={{ position: 'absolute', right: 8, top: 8 }}><CloseIcon /></IconButton>
           </DialogTitle>
           <DialogContent dividers>
+            {histTire && (
+              <Box mb={2}>
+                <Typography fontWeight={700} fontSize={13} mb={0.75}>Fotos de la llanta</Typography>
+                <FotosLlanta neumaticoId={histTire.id} />
+              </Box>
+            )}
             {histResumen && (
               <Stack direction="row" gap={1} mb={2} flexWrap="wrap" aria-label="Resumen del historial">
                 {([

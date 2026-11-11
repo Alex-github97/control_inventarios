@@ -761,6 +761,55 @@ class EAMDanoNeumaticoCatalogo(Base, TimestampMixin):
     # accion sugerida: REENCAUCHE / DESCARTE / INSPECCION
     accion      = Column(String(30), default="INSPECCION")
     activo      = Column(Boolean, default=True)
+    # Clasificación del daño para la disposición final (como el catálogo
+    # «Prodes»): dónde está en la llanta, qué avería es, la causa concreta, el
+    # grupo de motivo y a quién se le atribuye. Con esto el tablero de la pila
+    # de desechos agrupa por cada eje y no solo por código.
+    ubicacion   = Column(String(60))     # COSTADO / BANDA DE RODAMIENTO / CARCASA / PESTAÑA…
+    categoria   = Column(String(120))    # la avería: SEPARACIÓN/INFILTRACIÓN, DESGASTE…
+    causa       = Column(String(200))    # MALA REPARACIÓN TERCERA, CALOR, SOBRECARGA…
+    motivo      = Column(String(100))    # grupo: MALA REPARACIÓN, DAÑO ACCIDENTAL, OPERATIVO…
+    responsable = Column(String(60))     # OPERADOR, TERCERO, MTTO LLANTAS, FORTUITO…
+
+
+class EAMNeumaticoDisposicion(Base, TimestampMixin):
+    """Disposición final de una llanta: el examen de la carcasa que se desecha.
+
+    Una por llanta. La marca, la referencia, la medida, el DOT y la vida
+    (reencauches) no se copian: son de la llanta, que queda dada de baja y
+    sigue en la base. Lo que se guarda acá es lo que solo se ve al desecharla.
+    """
+    __tablename__ = "eam_neumatico_disposicion"
+    id                    = Column(Integer, primary_key=True, index=True)
+    neumatico_id          = Column(Integer, ForeignKey("eam_neumatico.id", ondelete="CASCADE"),
+                                   nullable=False, unique=True, index=True)
+    fecha                 = Column(DateTime, nullable=False)
+    dano_id               = Column(Integer, ForeignKey("eam_dano_neumatico_catalogo.id"), nullable=True, index=True)
+    profundidad_interna   = Column(Float)
+    profundidad_central   = Column(Float)
+    profundidad_externa   = Column(Float)
+    reparaciones          = Column(Integer)
+    regrabada             = Column(Boolean, default=False)
+    diseno_reencauche     = Column(String(100))
+    ubicacion_actual      = Column(String(150))   # dónde está la carcasa: sede, patio, proveedor
+    rechazo               = Column(String(150))   # quién la rechazó o por qué no se reencauchó
+    observaciones         = Column(Text)
+    origen                = Column(String(20), default="TITTANWARE")   # TITTANWARE | LITE | IMPORTADO
+    registrado_por        = Column(String(100))
+
+
+class EAMNeumaticoFoto(Base, TimestampMixin):
+    """Fotos de una llanta: del número, del daño, de la banda. Se ven en su
+    historial; la disposición final y las inspecciones las adjuntan."""
+    __tablename__ = "eam_neumatico_foto"
+    id             = Column(Integer, primary_key=True, index=True)
+    neumatico_id   = Column(Integer, ForeignKey("eam_neumatico.id", ondelete="CASCADE"), nullable=False, index=True)
+    disposicion_id = Column(Integer, ForeignKey("eam_neumatico_disposicion.id", ondelete="SET NULL"),
+                            nullable=True, index=True)
+    tipo           = Column(String(20), default="OTRA")   # NUMERO | DANO | BANDA | OTRA
+    archivo        = Column(String(300), nullable=False)
+    nombre         = Column(String(200))
+    registrado_por = Column(String(100))
 
 
 class EAMInspeccionNeumatico(Base, TimestampMixin):
