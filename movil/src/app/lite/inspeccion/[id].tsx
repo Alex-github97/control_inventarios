@@ -12,7 +12,7 @@
 import { useMemo, useRef, useState, type ComponentRef } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
-import { Bluetooth, ChevronLeft, ChevronRight, Play, Save } from 'lucide-react-native'
+import { Bluetooth, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Play, Save } from 'lucide-react-native'
 import {
   Boton, Campo, CampoNumerico, Chip, ESPACIO, EsquemaVehiculo, EstadoVacio, Fila, Interruptor, RADIO, Segmentado,
   Tarjeta, Texto, useTema, type PosicionLlanta,
@@ -71,7 +71,7 @@ export default function InspeccionLite() {
   const { usuario } = useSesion()
   const { vehiculos, catalogos } = useDatosLite()
   const { agregar } = useCola()
-  const { pref, memoria, recordar } = usePreferencias()
+  const { pref, cambiar: cambiarPref, memoria, recordar } = usePreferencias()
   const { color } = useTema()
   const vehiculo = useMemo(() => vehiculos?.find(v => String(v.activo_id) === String(id)), [vehiculos, id])
   const [etapa, setEtapa] = useState<'inicio' | 'llantas' | 'resumen'>('inicio')
@@ -92,7 +92,8 @@ export default function InspeccionLite() {
   const novedadesOrdenadas = useMemo(() => [...(catalogos?.novedades ?? [])].filter(n => n.clave !== 'SIN_LLANTA')
     .sort((a, b) => (memoria.novedades[b.clave] ?? 0) - (memoria.novedades[a.clave] ?? 0)), [catalogos, memoria])
 
-  const esquema = (fuente: (p: PosicionLite) => number | null, sinLlanta?: (p: PosicionLite) => boolean) => {
+  const esquema = (fuente: (p: PosicionLite) => number | null, sinLlanta?: (p: PosicionLite) => boolean,
+    previo?: (p: PosicionLite) => number | null) => {
     if (!vehiculo) return []
     const porEje = new Map<number, PosicionLlanta[]>()
     vehiculo.posiciones.forEach((p, i) => {
@@ -101,7 +102,7 @@ export default function InspeccionLite() {
       porEje.set(eje, [...(porEje.get(eje) ?? []), {
         numero: i + 1, eje, lado: p.lado.toUpperCase().startsWith('I') ? 'izq' : 'der',
         dual: /INT/i.test(p.codigo) ? 'int' : /EXT/i.test(p.codigo) ? 'ext' : undefined,
-        mm, estado: sinLlanta?.(p) ? null : estadoPorProfundidad(mm, catalogos?.umbrales) }])
+        mm, mmPrevio: previo?.(p) ?? null, estado: sinLlanta?.(p) ? null : estadoPorProfundidad(mm, catalogos?.umbrales) }])
     })
     return [...porEje.entries()].sort((a, b) => a[0] - b[0]).map(([, posiciones]) => ({ posiciones }))
   }
@@ -184,7 +185,7 @@ export default function InspeccionLite() {
                   {new Date(previa.fecha).toLocaleDateString('es-CO', { dateStyle: 'medium' })}
                   {previa.odometro ? ` · ${Math.round(previa.odometro).toLocaleString('es-CO')} km` : ''}{previa.inspector ? ` · ${previa.inspector}` : ''}
                 </Texto>
-                <EsquemaVehiculo ejes={esquema(p => minimo(previa.llantas?.[p.codigo]),
+                <EsquemaVehiculo profundidades ejes={esquema(p => minimo(previa.llantas?.[p.codigo]),
                   p => (previa.llantas?.[p.codigo]?.novedades ?? []).includes('SIN_LLANTA'))} />
                 <Texto variante="nota" tono="terciario">El color es el estado por la profundidad mínima de entonces.</Texto>
                 <View>
@@ -235,7 +236,7 @@ export default function InspeccionLite() {
       <View style={{ flex: 1, backgroundColor: color.fondo }}>
         <CabeceraLite titulo="Resumen" subtitulo={`${vehiculo.placa || vehiculo.codigo} · ${fecha}`} volver={() => setEtapa('llantas')} />
         <ScrollView contentContainerStyle={{ padding: ESPACIO.e4, gap: ESPACIO.e4 }}>
-          <Tarjeta><EsquemaVehiculo ejes={esquema(p => minimo(llantas[p.codigo]), p => !!llantas[p.codigo]?.novedades.includes('SIN_LLANTA'))}
+          <Tarjeta><EsquemaVehiculo profundidades ejes={esquema(p => minimo(llantas[p.codigo]), p => !!llantas[p.codigo]?.novedades.includes('SIN_LLANTA'))}
             alTocar={p => { setEtapa('llantas'); ir(orden.findIndex(o => o.codigo === vehiculo.posiciones[p.numero - 1].codigo)) }} /></Tarjeta>
           <Tarjeta relleno={0}>
             {inspeccionadas.map((l, i) => {
@@ -339,6 +340,30 @@ export default function InspeccionLite() {
         accion={pref.medidor ? <Bluetooth size={22} color={color.textoSobreAcento} /> : undefined} />
       <CapturaMedidor activo={pref.medidor} onLectura={lectura} />
       <ScrollView contentContainerStyle={{ padding: ESPACIO.e4, gap: ESPACIO.e3, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+        <Tarjeta relleno={pref.esquema ? undefined : ESPACIO.e3} style={{ gap: ESPACIO.e2 }}>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: pref.esquema }}
+            accessibilityLabel={pref.esquema ? 'Ocultar esquema del vehículo' : 'Ver esquema del vehículo'}
+            onPress={() => cambiarPref({ esquema: !pref.esquema })} hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32 }}>
+            <Texto variante="cuerpoFuerte">Esquema del vehículo</Texto>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Texto variante="nota" tono="acento">{pref.esquema ? 'Ocultar' : 'Ver'}</Texto>
+              {pref.esquema ? <ChevronUp size={18} color={color.acento} /> : <ChevronDown size={18} color={color.acento} />}
+            </View>
+          </Pressable>
+          {pref.esquema && (
+            <>
+              <EsquemaVehiculo profundidades
+                seleccion={actual ? vehiculo.posiciones.findIndex(p => p.codigo === actual.codigo) + 1 : null}
+                ejes={esquema(p => minimo(llantas[p.codigo]), p => !!llantas[p.codigo]?.novedades.includes('SIN_LLANTA'),
+                  p => minimo(previa?.llantas?.[p.codigo]))}
+                alTocar={p => ir(orden.findIndex(o => o.codigo === vehiculo.posiciones[p.numero - 1].codigo))} />
+              <Texto variante="nota" tono="terciario" style={{ textAlign: 'center' }}>
+                Toque una llanta para ir a ella. En color, lo medido hoy; en gris, la profundidad mínima de la inspección anterior.
+              </Texto>
+            </>
+          )}
+        </Tarjeta>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: ESPACIO.e2 }}>
           {orden.map((p, i) => {
             const l = llantas[p.codigo]

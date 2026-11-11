@@ -25,6 +25,7 @@ export interface Preferencias {
   pasos: Paso[]
   avanceAutomatico: boolean      // al completar los 3 surcos con el medidor, pasa a la siguiente llanta
   medidor: boolean               // modo medidor Bluetooth activo
+  esquema: boolean               // esquema del vehículo visible mientras se mide
 }
 export interface Memoria {
   novedades: Record<string, number>
@@ -35,7 +36,7 @@ export interface Memoria {
 const K_PREF = 'lite.preferencias'
 const K_MEM = 'lite.memoria'
 export const PREF_INICIAL: Preferencias = {
-  ruta: 'izq_der', pasos: ['profundidades', 'presion', 'novedades', 'fotos', 'llanta'], avanceAutomatico: true, medidor: false,
+  ruta: 'izq_der', pasos: ['profundidades', 'presion', 'novedades', 'fotos', 'llanta'], avanceAutomatico: true, medidor: false, esquema: true,
 }
 const MEM_INICIAL: Memoria = { novedades: {}, danos: {}, observaciones: [] }
 

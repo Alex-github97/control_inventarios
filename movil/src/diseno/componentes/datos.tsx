@@ -138,11 +138,17 @@ export function Esqueleto({ alto = 16, ancho = '100%', radio = RADIO.chico }: { 
   return <Animated.View accessibilityElementsHidden style={[{ height: alto, width: ancho, borderRadius: radio, backgroundColor: color.hundida }, estilo]} />
 }
 
-export interface PosicionLlanta { numero: number; eje: number; lado: 'izq' | 'der'; dual?: 'ext' | 'int'; mm: number | null; estado: 'critica' | 'moderada' | 'buena' | null }
+export interface PosicionLlanta {
+  numero: number; eje: number; lado: 'izq' | 'der'; dual?: 'ext' | 'int'; mm: number | null; estado: 'critica' | 'moderada' | 'buena' | null
+  /** Lo de la medición anterior, para mostrarlo tenue mientras no se mide de nuevo. */
+  mmPrevio?: number | null
+}
 
 /** El esquema de un vehículo visto desde arriba, con cada llanta en el color de su rango. */
-export function EsquemaVehiculo({ ejes, alTocar, seleccion }: {
+export function EsquemaVehiculo({ ejes, alTocar, seleccion, profundidades = false }: {
   ejes: { posiciones: PosicionLlanta[] }[]; alTocar?: (p: PosicionLlanta) => void; seleccion?: number | null
+  /** Muestra en cada llanta su profundidad (mm) debajo del número. */
+  profundidades?: boolean
 }) {
   const { color } = useTema()
   const tono = (e: PosicionLlanta['estado']) => e === 'critica' ? color.peligro : e === 'moderada' ? color.moderada : e === 'buena' ? color.exito : color.bordeFuerte
@@ -162,13 +168,18 @@ export function EsquemaVehiculo({ ejes, alTocar, seleccion }: {
             const dual = eje.posiciones.filter(x => x.lado === p.lado).length > 1
             const x = p.lado === 'izq' ? (dual && p.dual === 'int' ? 34 : 4) : (dual && p.dual === 'int' ? ancho - 34 - 28 : ancho - 4 - 28)
             const sel = seleccion === p.numero
+            const mm = p.mm ?? p.mmPrevio ?? null
             return (
               <Pressable key={p.numero} accessibilityRole="button"
                 accessibilityLabel={`Posición ${p.numero}${p.mm != null ? `, ${p.mm} milímetros` : ', sin medir'}`}
                 onPress={alTocar ? () => alTocar(p) : undefined}
                 style={{ position: 'absolute', left: x, top: 40 + i * altoEje + altoEje / 2 - 26, width: 28, height: 52, borderRadius: 8,
                   backgroundColor: tono(p.estado), borderWidth: sel ? 3 : 0, borderColor: color.texto, alignItems: 'center', justifyContent: 'center' }}>
-                <Texto variante="mini" tono="sobreAcento" style={{ letterSpacing: 0, color: color.superficie }}>{p.numero}</Texto>
+                <Texto variante="mini" tono="sobreAcento" style={{ letterSpacing: 0, color: color.superficie, opacity: profundidades ? 0.8 : 1 }}>{p.numero}</Texto>
+                {profundidades && (
+                  <Texto variante="mini" style={{ letterSpacing: -0.3, fontSize: 10, color: color.superficie, fontFamily: 'Inter_800ExtraBold',
+                    opacity: p.mm == null ? 0.75 : 1 }}>{mm == null ? '—' : String(Math.round(mm * 10) / 10)}</Texto>
+                )}
               </Pressable>
             )
           }))}

@@ -1,1 +1,1 @@
-Inspección pensada para el inspector: «Iniciar inspección» con fecha y odómetro, la última inspección de cada vehículo con sus profundidades, captura rápida sin ventanas emergentes (surcos externo, central e interno), medidor Bluetooth, orden de recorrido a su gusto, memoria de novedades y daños, fotos con cámara o galería que salen en el informe, y botón «Enviar reportes» con período.
+Nuevo ícono con el logo de TittanWare y esquema del vehículo durante la inspección: muestra las profundidades de cada llanta y permite ir a cualquiera tocándola.
