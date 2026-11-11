@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import List, Optional
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, and_, or_, update, true, literal, union_all, cast as sa_cast, Integer, String, Float
@@ -654,6 +654,10 @@ class NeuConfigSchema(BaseModel):
     # Rangos del estado de llantas a piso: ≤ crítico, ≤ moderado, > buen estado.
     rango_critico_mm: float = 3.0
     rango_moderado_mm: float = 6.0
+    # Proyección de kilometraje y plan de recambio.
+    mm_utiles: Optional[float] = None
+    mm_utiles_por_medida: Optional[Dict[str, float]] = None
+    ventana_km_diario: Optional[int] = 90
 
 # ── Zonas de llantas ──
 class ZonaNeumaticoCreate(BaseModel):
@@ -3428,6 +3432,12 @@ async def update_config_neumatico(data: NeuConfigSchema, db: AsyncSession = Depe
         setattr(cfg, k, v)
     if (cfg.rango_critico_mm or 3.0) >= (cfg.rango_moderado_mm or 6.0):
         raise HTTPException(422, "El límite de «crítica» debe ser menor que el de «moderada».")
+    if cfg.mm_utiles is not None and not 0 < cfg.mm_utiles <= 40:
+        raise HTTPException(422, "Los mm útiles van de 0 a 40.")
+    if any(not (0 < (v or 0) <= 40) for v in (cfg.mm_utiles_por_medida or {}).values()):
+        raise HTTPException(422, "Los mm útiles por dimensión van de 0 a 40.")
+    if cfg.ventana_km_diario is not None and not 7 <= cfg.ventana_km_diario <= 730:
+        raise HTTPException(422, "La ventana del km diario va de 7 a 730 días.")
     await db.commit(); await db.refresh(cfg)
     return cfg
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, usuarios, estibas, ubicaciones, proveedores,
-    eam_neumaticos_disposicion, eam_lite, vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, lubricacion_informes, tittanbot, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_neumaticos_informes, eam_neumaticos_tableros, eam_neumaticos_sugerencias, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, pos, erp_facturacion, wms_trazable, wms_cubicaje, wms_indicadores, wms_sugerencias, wms_maquila, wms_mapa, wms_3pl, wms_portal, wms_traslados, wms_operacion_tareas, tarifax_comparativo, crm_reuniones, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion,
+    eam_neumaticos_disposicion, eam_neumaticos_proyeccion, eam_lite, vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, lubricacion_informes, tittanbot, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_neumaticos_informes, eam_neumaticos_tableros, eam_neumaticos_sugerencias, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, pos, erp_facturacion, wms_trazable, wms_cubicaje, wms_indicadores, wms_sugerencias, wms_maquila, wms_mapa, wms_3pl, wms_portal, wms_traslados, wms_operacion_tareas, tarifax_comparativo, crm_reuniones, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion,
     reencauche, reencauche_operacion, reencauche_despachos, reencauche_consultas, movil,
 )
 
@@ -43,6 +43,7 @@ api_router.include_router(eam_neumaticos_informes.router)
 api_router.include_router(eam_neumaticos_tableros.router)
 api_router.include_router(eam_neumaticos_disposicion.router)
 api_router.include_router(eam_lite.router)
+api_router.include_router(eam_neumaticos_proyeccion.router)
 api_router.include_router(eam_neumaticos_sugerencias.router)
 # Documentos de las ordenes de trabajo.
 api_router.include_router(eam_adjuntos.router)

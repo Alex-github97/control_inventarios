@@ -1207,6 +1207,10 @@ async def _migrar_esquema(esquema: str) -> None:
             ("eam_dano_neumatico_catalogo", "causa", "VARCHAR(200)"),
             ("eam_dano_neumatico_catalogo", "motivo", "VARCHAR(100)"),
             ("eam_dano_neumatico_catalogo", "responsable", "VARCHAR(60)"),
+            # Proyección de kilometraje de llantas.
+            ("eam_neumatico_config", "mm_utiles", "DOUBLE PRECISION"),
+            ("eam_neumatico_config", "mm_utiles_por_medida", "JSON"),
+            ("eam_neumatico_config", "ventana_km_diario", "INTEGER DEFAULT 90"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

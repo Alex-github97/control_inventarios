@@ -885,6 +885,14 @@ class EAMNeumaticoConfig(Base, TimestampMixin):
     # Las reglas de sugerencia iniciales se siembran una sola vez: si la empresa
     # luego las borra, no deben volver a aparecer.
     reglas_sembradas      = Column(Boolean, default=False)
+    # Proyección de kilometraje: los milímetros utilizables de una llanta (de la
+    # profundidad nueva al retiro). Uno general y, si se quiere, uno por
+    # dimensión ({"295/80R22.5": 14}). Sin ninguno se toma la profundidad de
+    # diseño de la llanta menos la mínima.
+    mm_utiles             = Column(Float, nullable=True)
+    mm_utiles_por_medida  = Column(JSON, nullable=True)
+    # Días hacia atrás para el kilometraje diario de cada vehículo.
+    ventana_km_diario     = Column(Integer, default=90)
 
 
 # ─── Catálogos de configuración de llantas (zonas, bandas, motivos, ajustes,

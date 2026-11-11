@@ -82,7 +82,7 @@ def test_generar_reporte_ofrece_todos_los_informes():
     tipos = POR_NOMBRE["generar_reporte"].esquema["properties"]["tipo"]["enum"]
     assert set(tipos) == {"ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf",
                           "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf",
-                          "tittanlite_pdf", "tittanlite_excel"}
+                          "tittanlite_pdf", "tittanlite_excel", "plan_recambio_excel"}
 
 
 def test_plantilla_con_obligatorias_marcadas_y_lista_desplegable():

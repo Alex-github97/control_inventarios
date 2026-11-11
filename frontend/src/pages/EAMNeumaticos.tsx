@@ -38,6 +38,7 @@ import { pedirPagina, useRetardado } from '@/utils/paginaServidor'
 import { FILTROS_VACIOS, FiltrosLlantasBarra, type FiltrosLlantas } from '@/components/eam/FiltrosLlantas'
 import { TableroDescarte, type SaltoDescarte } from '@/components/eam/TableroDescarte'
 import { CatalogoDanosDisposicion, FotosLlanta, ListaDisposiciones } from '@/components/eam/DisposicionFinal'
+import { ConfigProyeccion, ProyeccionLlanta } from '@/components/eam/PlanRecambio'
 import { ReglasSugerencia, SugerenciasVehiculo, UmbralesNovedad } from '@/components/eam/SugerenciasLlantas'
 
 /** Filas por página en las listas que pueden crecer sin tope (descarte, consulta, bitácora). */
@@ -3255,6 +3256,7 @@ export default function EAMNeumaticos() {
             <Grid size={{ xs: 12 }}><UmbralesNovedad /></Grid>
             {/* Catálogo de daños, con la clasificación de la disposición final */}
             <Grid size={{ xs: 12 }}><CatalogoDanosDisposicion /></Grid>
+            <Grid size={{ xs: 12 }}><ConfigProyeccion /></Grid>
             <Grid size={{ xs: 12 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
                 <CardContent>
@@ -4802,6 +4804,7 @@ export default function EAMNeumaticos() {
           <DialogContent dividers>
             {histTire && (
               <Box mb={2}>
+                {histTire.estado === 'INSTALADO' && <Box mb={1.5}><ProyeccionLlanta neumaticoId={histTire.id} /></Box>}
                 <Typography fontWeight={700} fontSize={13} mb={0.75}>Fotos de la llanta</Typography>
                 <FotosLlanta neumaticoId={histTire.id} />
               </Box>

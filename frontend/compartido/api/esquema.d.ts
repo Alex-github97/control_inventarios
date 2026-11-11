@@ -5159,6 +5159,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/neumaticos/proyeccion/llanta/{nid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proyeccion Llanta
+         * @description La proyección de una llanta montada, con de dónde salió cada número.
+         */
+        get: operations["proyeccion_llanta_api_v1_eam_neumaticos_proyeccion_llanta__nid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/proyeccion/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Recambio
+         * @description Cuándo se acaba cada llanta montada y cuántas hay que cambiar por mes,
+         *     por tipo de eje y por dimensión.
+         */
+        get: operations["plan_recambio_api_v1_eam_neumaticos_proyeccion_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/neumaticos/proyeccion/plan/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plan Excel */
+        get: operations["plan_excel_api_v1_eam_neumaticos_proyeccion_plan_excel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/neumaticos/reencauche": {
         parameters: {
             query?: never;
@@ -10653,6 +10711,12 @@ export interface components {
              * @default 2
              */
             margen_alerta_profundidad: number;
+            /** Mm Utiles */
+            mm_utiles?: number | null;
+            /** Mm Utiles Por Medida */
+            mm_utiles_por_medida?: {
+                [key: string]: number;
+            } | null;
             /**
              * Montaje Estricto
              * @default true
@@ -10688,6 +10752,11 @@ export interface components {
              * @default 2
              */
             umbral_desalineacion: number;
+            /**
+             * Ventana Km Diario
+             * @default 90
+             */
+            ventana_km_diario: number | null;
         };
         /** NeumaticCreate */
         NeumaticCreate: {
@@ -25818,6 +25887,109 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proyeccion_llanta_api_v1_eam_neumaticos_proyeccion_llanta__nid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_recambio_api_v1_eam_neumaticos_proyeccion_plan_get: {
+        parameters: {
+            query?: {
+                /** @description TITTANWARE o LITE */
+                origen?: string;
+                meses?: number;
+                activo_ids?: number[] | null;
+                tipos_vehiculo?: string[] | null;
+                /** @description LITE: inspecciones de los últimos N días */
+                dias_lite?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_excel_api_v1_eam_neumaticos_proyeccion_plan_excel_get: {
+        parameters: {
+            query?: {
+                origen?: string;
+                meses?: number;
+                activo_ids?: number[] | null;
+                tipos_vehiculo?: string[] | null;
+                dias_lite?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
             /** @description Validation Error */
             422: {

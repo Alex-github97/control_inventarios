@@ -218,6 +218,15 @@ async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
         return await _llantas_rendimiento(ctx, a)
     if tipo == "causa_raiz_pdf":
         return await _causa_raiz(ctx, a)
+    if tipo == "plan_recambio_excel":
+        from app.api.v1.endpoints.eam_neumaticos_proyeccion import excel_plan
+        origen = "LITE" if (a.get("origen") or "").upper() == "LITE" else "TITTANWARE"
+        meses = max(1, min(int(a.get("meses") or 6), 24))
+        contenido = await excel_plan(ctx.db, origen, meses)
+        d = await _guardar(ctx, contenido, f"plan-recambio-{'lite-' if origen == 'LITE' else ''}{datetime.now():%Y%m%d}.xlsx",
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        return {"exito": True, "archivo": d["nombre"], "token": d["token"],
+                "resultado": f"Plan de recambio de los próximos {meses} meses listo para descargar."}
     if tipo in ("tittanlite_pdf", "tittanlite_excel"):
         return await _tittanlite(ctx, a, tipo == "tittanlite_pdf")
     return {"exito": False, "resultado": f"No existe el reporte «{tipo}»."}

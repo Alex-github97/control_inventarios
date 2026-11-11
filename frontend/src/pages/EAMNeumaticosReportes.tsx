@@ -7,7 +7,7 @@ import Grid from '@mui/material/Grid2'
 import {
   ArrowBack as BackIcon, PictureAsPdf, Download, DirectionsCar,
   Straighten, PieChart as PieIcon, Dashboard as DashboardIcon, AttachMoney, Speed,
-  Height, ListAlt, Assessment, PhoneAndroid,
+  Height, ListAlt, Assessment, PhoneAndroid, EventRepeat,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +19,7 @@ import { FILTROS_VACIOS, FiltrosLlantasBarra, hayFiltros, type FiltrosLlantas } 
 import { TableroRendimiento, InformeMetrica, DetalleVidas, BotonInformePDF } from '@/components/eam/RendimientoLlantas'
 import { EstadoLlantasPiso } from '@/components/eam/EstadoLlantasPiso'
 import { InformeTittanLite } from '@/components/eam/InformeTittanLite'
+import { PlanRecambio } from '@/components/eam/PlanRecambio'
 
 import { COLOR_MODULO } from '@/config/marca'
 const EAM_COLOR = COLOR_MODULO
@@ -60,7 +61,7 @@ interface InspeccionHistorial {
   estado_visual?: string | null; observaciones?: string | null; tecnico?: string | null
 }
 
-type TipoInforme = 'TABLERO' | 'CPK' | 'KM' | 'KM_MM' | 'VIDAS' | 'ESTADO_FLOTA' | 'COMPOSICION' | 'HISTORIAL' | 'TITTANLITE'
+type TipoInforme = 'TABLERO' | 'CPK' | 'KM' | 'KM_MM' | 'VIDAS' | 'ESTADO_FLOTA' | 'COMPOSICION' | 'HISTORIAL' | 'TITTANLITE' | 'RECAMBIO'
 
 // Los de rendimiento traen sus propios filtros y descargas; la página solo les
 // pasa el periodo.
@@ -122,6 +123,12 @@ const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo:
     titulo: 'Informe TittanLite',
     descripcion: 'Lo inspeccionado en campo con la app: composición a piso, estado bueno/regular/crítico, esquema por vehículo, novedades y sincronización.',
     icono: <PhoneAndroid />,
+  },
+  {
+    id: 'RECAMBIO', grupo: 'Rendimiento y costos',
+    titulo: 'Plan de recambio',
+    descripcion: 'Cuándo se acaba cada llanta (km/mm × mm útiles) y cuántas direccionales, de tracción y libres cambiar por mes y dimensión.',
+    icono: <EventRepeat />,
   },
 ]
 
@@ -354,7 +361,7 @@ export default function EAMNeumaticosReportes() {
               <Stack direction="row" alignItems="center">
                 {rangoRapido('7 días', 7)}{rangoRapido('30 días', 30)}{rangoRapido('90 días', 90)}
               </Stack>
-              {tipo !== 'COMPOSICION' && tipo !== 'TITTANLITE' && !DE_RENDIMIENTO.includes(tipo) && (
+              {tipo !== 'COMPOSICION' && tipo !== 'TITTANLITE' && tipo !== 'RECAMBIO' && !DE_RENDIMIENTO.includes(tipo) && (
                 <TextField select size="small" label="Vehículo" value={vehId}
                   onChange={e => setVehId(e.target.value)} sx={{ minWidth: 220 }}>
                   <MenuItem value="">Toda la flota</MenuItem>
@@ -383,7 +390,7 @@ export default function EAMNeumaticosReportes() {
                 </Button>
               )}
               {tipo === 'COMPOSICION' && <BotonInformePDF tipo="COMPOSICION" disabled={cargando || !composicion.length} />}
-              {tipo !== 'TITTANLITE' && !DE_RENDIMIENTO.includes(tipo) && (
+              {tipo !== 'TITTANLITE' && tipo !== 'RECAMBIO' && !DE_RENDIMIENTO.includes(tipo) && (
                 <Button variant="contained" startIcon={<Download />} disabled={cargando}
                   onClick={generarExcel}
                   sx={{ bgcolor: EAM_COLOR, '&:hover': { bgcolor: EAM_DARK }, textTransform: 'none', fontWeight: 700 }}>
@@ -420,6 +427,7 @@ export default function EAMNeumaticosReportes() {
         {tipo === 'KM_MM' && <InformeMetrica key="km_mm" metrica="km_mm" desde={desde} hasta={hasta} />}
         {tipo === 'VIDAS' && <DetalleVidas desde={desde} hasta={hasta} />}
         {tipo === 'TITTANLITE' && <InformeTittanLite desde={desde} hasta={hasta} />}
+        {tipo === 'RECAMBIO' && <PlanRecambio />}
 
         {tipo === 'ESTADO_FLOTA' && (
           <Stack spacing={2}>
