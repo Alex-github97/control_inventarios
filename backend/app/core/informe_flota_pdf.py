@@ -58,6 +58,25 @@ class Resumen:
     por_novedad: List[tuple] = field(default_factory=list)        # (tipo, nombre, cantidad, %)
     por_sugerencia: List[tuple] = field(default_factory=list)     # (nombre, cantidad)
     sugerencias: int = 0
+    # Composición a piso y estado (histograma bueno / regular / crítico).
+    por_vida: List[tuple] = field(default_factory=list)
+    por_referencia: List[tuple] = field(default_factory=list)
+    por_estado: List[tuple] = field(default_factory=list)          # (Bueno|Regular|Crítico, cantidad)
+    # Lo que el inspector anotó en campo (TittanLite): novedades marcadas y las
+    # observaciones que más se repiten.
+    novedades_campo: List[tuple] = field(default_factory=list)
+    observaciones: List[tuple] = field(default_factory=list)
+
+
+def estado_de(pmin: Optional[float], u: Umbrales) -> Optional[str]:
+    """Bueno, regular o crítico por la profundidad mínima de la llanta."""
+    if pmin is None:
+        return None
+    if pmin <= u.profundidad_minima:
+        return "Crítico"
+    if pmin <= u.profundidad_minima + u.margen_alerta:
+        return "Regular"
+    return "Bueno"
 
 
 def resumir(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict[int, List[Sugerencia]],
@@ -75,6 +94,11 @@ def resumir(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
         return Counter(valores).most_common()
 
     r.por_marca = contar((ll.marca or SIN_DATO).strip() for ll in insp)
+    r.por_vida = sorted(contar(ll.vida for ll in insp), key=lambda x: (x[0] != "VN", x[0]))
+    r.por_referencia = contar(" ".join(x for x in ((ll.marca or "").strip(), (ll.referencia or "").strip()) if x)
+                              or SIN_DATO for ll in insp)
+    estados = Counter(estado_de(ll.pmin, u) for ll in insp)
+    r.por_estado = [(e, estados.get(e, 0)) for e in ("Bueno", "Regular", "Crítico")]
     r.por_dimension = contar((ll.medida or SIN_DATO).strip() for ll in insp)
     r.por_tipo_vehiculo = contar(v.tipo for v in vehiculos)
 
@@ -109,7 +133,7 @@ def _color_llanta(ll: LlantaInsp, nov: Dict[int, List[Novedad]]):
 
 
 def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict[int, List[Sugerencia]],
-            r: Resumen, u: Umbrales, enc: Encabezado) -> bytes:
+            r: Resumen, u: Umbrales, enc: Encabezado, titulo: str = "Estado de llantas de la flota") -> bytes:
     from fpdf import FPDF
 
     class Informe(FPDF):
@@ -119,7 +143,7 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
             self.set_y(-10)
             self.set_font("Helvetica", "", 7)
             self.set_text_color(*GRIS)
-            self.cell(0, 5, limpio(f"{enc.empresa} · Estado de llantas de la flota · Generado el "
+            self.cell(0, 5, limpio(f"{enc.empresa} · {titulo} · Generado el "
                                    f"{enc.generado_en:%d/%m/%Y %H:%M} por {enc.generado_por}"))
             self.set_x(-78)
             _marca(self, 7, GRIS, w=34, alto=5)
@@ -185,11 +209,11 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
             y += 5
         return y + 3
 
-    _portada(pdf, r, enc)
+    _portada(pdf, r, enc, titulo)
 
     # ── Resumen ejecutivo ──
     pdf.add_page()
-    banda("Estado de llantas de la flota", f"{enc.empresa} · {enc.periodo} · Resumen ejecutivo de la última inspección")
+    banda(titulo, f"{enc.empresa} · {enc.periodo} · Resumen ejecutivo de la última inspección")
     y = 28
     ancho = (W - 2 * M - 5 * 4) / 6
     n = lambda x: f"{x:,}".replace(",", ".")  # noqa: E731
@@ -233,6 +257,48 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
         "por posición con las tres profundidades medidas (izquierda, centro y derecha) y la presión. Las "
         "sugerencias salen de las reglas configuradas en el módulo de llantas."))
 
+    # ── Composición a piso y estado ──
+    if any(c for _, c in r.por_estado) or r.por_vida:
+        pdf.add_page()
+        banda("Composición de llantas a piso y estado", f"{enc.empresa} · {enc.periodo} · Llantas inspeccionadas")
+        y = 30
+        total_est = sum(c for _, c in r.por_estado) or 1
+        texto(M, y, "Estado de las llantas (por profundidad mínima)", 10, "B")
+        texto(M, y + 5.5, f"Crítico: en o bajo {u.profundidad_minima:g} mm · Regular: hasta "
+                          f"{u.profundidad_minima + u.margen_alerta:g} mm · Bueno: por encima", 7.5, "", GRIS)
+        # Histograma: una columna por estado, alto proporcional.
+        base, alto_max, ancho_col = y + 62, 46, 30
+        tope = max([c for _, c in r.por_estado] + [1])
+        for i, (nombre, cantidad) in enumerate(r.por_estado):
+            color = {"Bueno": VERDE, "Regular": AMBAR, "Crítico": ROJO}[nombre]
+            x = M + 6 + i * (ancho_col + 14)
+            h = alto_max * cantidad / tope
+            pdf.set_fill_color(*color)
+            pdf.rect(x, base - h, ancho_col, max(h, 0.4), "F")
+            texto(x, base - h - 6, f"{cantidad:,}".replace(",", ".") + f" ({100 * cantidad / total_est:.1f} %)",
+                  8, "B", NEGRO, ancho_col, "C")
+            texto(x, base + 2, nombre, 8.5, "B", color, ancho_col, "C")
+        col = (W - 2 * M - 16) / 3
+        x2 = M + col + 8
+        fin = barras(x2, y, col, "Por vida", r.por_vida, maximo=8)
+        barras(x2 + col + 8, y, col, "Por dimensión", r.por_dimension, maximo=8)
+        y = max(base + 12, fin + 4)
+        y1 = barras(M, y, col, "Por marca", r.por_marca, maximo=10)
+        y2 = barras(x2, y, col, "Por referencia", r.por_referencia, maximo=10)
+        if r.novedades_campo or r.observaciones:
+            ya = barras(x2 + col + 8, y, col, "Novedades marcadas en campo", r.novedades_campo, maximo=8)
+            if r.observaciones:
+                texto(x2 + col + 8, ya, "Observaciones más recurrentes", 9, "B")
+                ya += 6
+                for obs, cantidad in r.observaciones[:8]:
+                    pdf.set_font("Helvetica", "", 7.5)
+                    pdf.set_text_color(*NEGRO)
+                    pdf.set_xy(x2 + col + 8, ya)
+                    pdf.multi_cell(col, 3.6, limpio(f"{cantidad}× {obs}"[:140]))
+                    ya = pdf.get_y() + 1.2
+        else:
+            barras(x2 + col + 8, y, col, "Tipos de vehículo", r.por_tipo_vehiculo, maximo=8)
+
     # ── Una página por vehículo ──
     for v in flota:
         pdf.add_page()
@@ -246,13 +312,13 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
     return bytes(pdf.output())
 
 
-def _portada(pdf, r: Resumen, enc: Encabezado):
+def _portada(pdf, r: Resumen, enc: Encabezado, titulo: str = "Estado de llantas de la flota"):
     n = lambda x: f"{x:,}".replace(",", ".")  # noqa: E731
 
     def cifra(x, singular, plural):
         return f"{n(x)} {singular if x == 1 else plural}"
 
-    portada(pdf, enc, "Estado de llantas de la flota",
+    portada(pdf, enc, titulo,
             "Resumen ejecutivo y diagnóstico por vehículo con la última inspección",
             [cifra(r.vehiculos_inspeccionados, "vehículo inspeccionado", "vehículos inspeccionados"),
              cifra(r.llantas_inspeccionadas, "llanta inspeccionada", "llantas inspeccionadas"),

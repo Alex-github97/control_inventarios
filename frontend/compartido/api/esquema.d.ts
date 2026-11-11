@@ -2668,6 +2668,228 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/lite/catalogos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogos
+         * @description Marcas, referencias y medidas que ya existen en la cuenta, el catálogo de
+         *     daños y las novedades de campo. La app los ofrece como sugerencia; se puede
+         *     escribir otra cosa.
+         */
+        get: operations["catalogos_api_v1_eam_lite_catalogos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/disposiciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Disposiciones Lite */
+        get: operations["listar_disposiciones_lite_api_v1_eam_lite_disposiciones_get"];
+        put?: never;
+        /** Crear Disposicion Lite */
+        post: operations["crear_disposicion_lite_api_v1_eam_lite_disposiciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/disposiciones/{did}/sincronizar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resincronizar Disposicion */
+        post: operations["resincronizar_disposicion_api_v1_eam_lite_disposiciones__did__sincronizar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/fotos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subir Foto Lite */
+        post: operations["subir_foto_lite_api_v1_eam_lite_fotos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/fotos/{fid}/archivo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Foto Lite */
+        get: operations["ver_foto_lite_api_v1_eam_lite_fotos__fid__archivo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/informe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Informe
+         * @description El informe TittanLite en datos, para la pantalla.
+         */
+        get: operations["informe_api_v1_eam_lite_informe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/informe/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Informe Excel */
+        get: operations["informe_excel_api_v1_eam_lite_informe_excel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/informe/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Informe Pdf */
+        get: operations["informe_pdf_api_v1_eam_lite_informe_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/inspecciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Inspecciones */
+        get: operations["listar_inspecciones_api_v1_eam_lite_inspecciones_get"];
+        put?: never;
+        /** Crear Inspeccion Lite */
+        post: operations["crear_inspeccion_lite_api_v1_eam_lite_inspecciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/inspecciones/{iid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Inspeccion */
+        get: operations["ver_inspeccion_api_v1_eam_lite_inspecciones__iid__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/inspecciones/{iid}/sincronizar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resincronizar
+         * @description Vuelve a intentar las líneas pendientes o rechazadas (p. ej. después de
+         *     registrar en TittanWare el movimiento que faltaba).
+         */
+        post: operations["resincronizar_api_v1_eam_lite_inspecciones__iid__sincronizar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/lite/vehiculos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vehiculos
+         * @description Los vehículos de la cuenta con su esquema de posiciones y la llanta que
+         *     TittanWare tiene montada en cada una (para proponerla en la inspección).
+         */
+        get: operations["vehiculos_api_v1_eam_lite_vehiculos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/lube/analitica": {
         parameters: {
             query?: never;
@@ -7126,6 +7348,23 @@ export interface components {
             /** Respuesta Id */
             respuesta_id?: number | null;
         };
+        /** Body_subir_foto_lite_api_v1_eam_lite_fotos_post */
+        Body_subir_foto_lite_api_v1_eam_lite_fotos_post: {
+            /**
+             * Archivo
+             * Format: binary
+             */
+            archivo: string;
+            /** Disposicion Id */
+            disposicion_id?: number | null;
+            /** Inspeccion Llanta Id */
+            inspeccion_llanta_id?: number | null;
+            /**
+             * Tipo
+             * @default OTRA
+             */
+            tipo: string;
+        };
         /** Body_subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post */
         Body_subir_fotos_api_v1_eam_neumaticos_disposicion_llanta__nid__fotos_post: {
             /** Archivos */
@@ -8474,6 +8713,58 @@ export interface components {
             /** Ubicacion Actual */
             ubicacion_actual?: string | null;
         };
+        /** DisposicionLiteIn */
+        DisposicionLiteIn: {
+            /** Activo Id */
+            activo_id?: number | null;
+            /** Codigo */
+            codigo: string;
+            /** Dano Id */
+            dano_id?: number | null;
+            /** Diseno Reencauche */
+            diseno_reencauche?: string | null;
+            /** Dot */
+            dot?: string | null;
+            /**
+             * Fecha
+             * Format: date-time
+             */
+            fecha: string;
+            /** Inspector */
+            inspector?: string | null;
+            /** Marca */
+            marca?: string | null;
+            /** Medida */
+            medida?: string | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Profundidad Central */
+            profundidad_central?: number | null;
+            /** Profundidad Externa */
+            profundidad_externa?: number | null;
+            /** Profundidad Interna */
+            profundidad_interna?: number | null;
+            /** Reencauches */
+            reencauches?: number | null;
+            /** Referencia */
+            referencia?: string | null;
+            /**
+             * Regrabada
+             * @default false
+             */
+            regrabada: boolean;
+            /** Reparaciones */
+            reparaciones?: number | null;
+            /**
+             * Sincronizar
+             * @default true
+             */
+            sincronizar: boolean;
+            /** Ubicacion Actual */
+            ubicacion_actual?: string | null;
+            /** Uuid */
+            uuid: string;
+        };
         /** DispositivoResponse */
         DispositivoResponse: {
             /** Id */
@@ -9313,6 +9604,36 @@ export interface components {
             /** Vida */
             vida?: string | null;
         };
+        /** InspeccionLiteIn */
+        InspeccionLiteIn: {
+            /** Activo Id */
+            activo_id: number;
+            /**
+             * Fecha
+             * Format: date-time
+             */
+            fecha: string;
+            /** Horometro */
+            horometro?: number | null;
+            /** Inspector */
+            inspector?: string | null;
+            /**
+             * Llantas
+             * @default []
+             */
+            llantas: components["schemas"]["LlantaLiteIn"][];
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Odometro */
+            odometro?: number | null;
+            /**
+             * Sincronizar
+             * @default true
+             */
+            sincronizar: boolean;
+            /** Uuid */
+            uuid: string;
+        };
         /** InspeccionNeuCreate */
         InspeccionNeuCreate: {
             /** Estado Visual */
@@ -9518,6 +9839,36 @@ export interface components {
             referencia?: string | null;
             /** Vida */
             vida?: string | null;
+        };
+        /** LlantaLiteIn */
+        LlantaLiteIn: {
+            /** Codigo */
+            codigo?: string | null;
+            /** Marca */
+            marca?: string | null;
+            /** Medida */
+            medida?: string | null;
+            /**
+             * Novedades
+             * @default []
+             */
+            novedades: string[];
+            /** Observacion */
+            observacion?: string | null;
+            /** Posicion */
+            posicion?: string | null;
+            /** Presion */
+            presion?: number | null;
+            /** Profundidad Central */
+            profundidad_central?: number | null;
+            /** Profundidad Externa */
+            profundidad_externa?: number | null;
+            /** Profundidad Interna */
+            profundidad_interna?: number | null;
+            /** Reencauches */
+            reencauches?: number | null;
+            /** Referencia */
+            referencia?: string | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -19826,6 +20177,451 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogos_api_v1_eam_lite_catalogos_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    listar_disposiciones_lite_api_v1_eam_lite_disposiciones_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                estado_sync?: string | null;
+                limite?: number;
+                desplazamiento?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_disposicion_lite_api_v1_eam_lite_disposiciones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisposicionLiteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resincronizar_disposicion_api_v1_eam_lite_disposiciones__did__sincronizar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                did: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subir_foto_lite_api_v1_eam_lite_fotos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_foto_lite_api_v1_eam_lite_fotos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_foto_lite_api_v1_eam_lite_fotos__fid__archivo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    informe_api_v1_eam_lite_informe_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                activo_ids?: number[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    informe_excel_api_v1_eam_lite_informe_excel_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                activo_ids?: number[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    informe_pdf_api_v1_eam_lite_informe_pdf_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                activo_ids?: number[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_inspecciones_api_v1_eam_lite_inspecciones_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+                activo_id?: number | null;
+                estado_sync?: string | null;
+                limite?: number;
+                desplazamiento?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_inspeccion_lite_api_v1_eam_lite_inspecciones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspeccionLiteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_inspeccion_api_v1_eam_lite_inspecciones__iid__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                iid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resincronizar_api_v1_eam_lite_inspecciones__iid__sincronizar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                iid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vehiculos_api_v1_eam_lite_vehiculos_get: {
+        parameters: {
+            query?: {
+                buscar?: string | null;
+                limite?: number;
             };
             header?: never;
             path?: never;

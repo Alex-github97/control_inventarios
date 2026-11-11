@@ -133,6 +133,9 @@ from app.infrastructure.models.lubricacion import (
     LubeCompartimento, LubeCarga, LubeRelleno,
     LubeMuestra, LubeResultado, LubeDiagnostico, LubeAsesor,
 )
+from app.infrastructure.models.lite import (  # noqa: F401
+    LiteDisposicion, LiteFoto, LiteInspeccion, LiteInspeccionLlanta,
+)
 from app.infrastructure.models.tittanbot import (
     TittanbotConversacion, TittanbotMensaje, TittanbotAccion, TittanbotDescarga, TittanbotAdjunto,
 )

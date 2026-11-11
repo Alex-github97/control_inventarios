@@ -166,6 +166,36 @@ async def _causa_raiz(ctx: Contexto, a: dict) -> Dict[str, Any]:
                           f"Análisis de causa raíz {f['ot_numero'] or f['id']} (PDF)")
 
 
+async def _tittanlite(ctx: Contexto, a: dict, pdf: bool) -> Dict[str, Any]:
+    """El informe de las inspecciones de TittanLite: composición a piso,
+    estado bueno/regular/crítico, esquema por vehículo y novedades."""
+    from datetime import date, timedelta
+    from fastapi import HTTPException
+    from app.api.v1.endpoints.eam_lite import informe_excel_bytes, informe_pdf_bytes
+    hasta = date.fromisoformat(a["hasta"][:10]) if a.get("hasta") else None
+    desde = date.fromisoformat(a["desde"][:10]) if a.get("desde") else date.today() - timedelta(days=int(a.get("dias") or 30))
+    ids = None
+    if a.get("placa"):
+        filas = await _filas(ctx.db, "SELECT id FROM eam_activo WHERE placa ILIKE :p OR codigo ILIKE :p",
+                             {"p": a["placa"].strip()})
+        if not filas:
+            return {"exito": False, "resultado": f"No hay un vehículo con placa «{a['placa']}»."}
+        ids = [f["id"] for f in filas]
+    nombre_u = f"{getattr(ctx.usuario, 'nombre', '') or ''} {getattr(ctx.usuario, 'apellido', '') or ''}".strip()
+    try:
+        if pdf:
+            contenido = await informe_pdf_bytes(ctx.db, desde, hasta, ids, nombre_u or "TittanBot")
+            d = await _guardar(ctx, contenido, f"tittanlite-{datetime.now():%Y%m%d}.pdf", "application/pdf")
+        else:
+            contenido = await informe_excel_bytes(ctx.db, desde, hasta, ids)
+            d = await _guardar(ctx, contenido, f"tittanlite-{datetime.now():%Y%m%d}.xlsx",
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    except HTTPException as e:
+        return {"exito": False, "resultado": str(e.detail)}
+    return {"exito": True, "archivo": d["nombre"], "token": d["token"],
+            "resultado": f"Informe TittanLite desde {desde:%d/%m/%Y} listo para descargar."}
+
+
 async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
     tipo = a.get("tipo")
     if tipo == "ordenes_excel":
@@ -188,4 +218,6 @@ async def generar(ctx: Contexto, a: dict) -> Dict[str, Any]:
         return await _llantas_rendimiento(ctx, a)
     if tipo == "causa_raiz_pdf":
         return await _causa_raiz(ctx, a)
+    if tipo in ("tittanlite_pdf", "tittanlite_excel"):
+        return await _tittanlite(ctx, a, tipo == "tittanlite_pdf")
     return {"exito": False, "resultado": f"No existe el reporte «{tipo}»."}

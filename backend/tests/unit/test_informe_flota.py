@@ -91,6 +91,6 @@ def test_el_pdf_lleva_portada_con_logo(tmp_path):
     sug = sugerencias(todas, [], U)
     pdf = generar(flota, nov, sug, resumir(flota, nov, sug, U), U,
                   Encabezado("Empresa", "Última inspección", "Prueba", HOY, logo=str(logo)))
-    # Portada + resumen + un vehículo.
+    # Portada + resumen + composición y estado + un vehículo.
     import re
-    assert len(re.findall(rb"/Type\s*/Page(?!s)", pdf)) == 3
+    assert len(re.findall(rb"/Type\s*/Page(?!s)", pdf)) == 4

@@ -399,11 +399,15 @@ CATALOGO: List[Herramienta] = [
         "CPK (costo por km), KM (km por vida), KM_MM (km por milímetro), VIDAS (detalle por vida) o "
         "COMPOSICION (parque montado por marca y medida); desde, hasta y marca opcionales.\n"
         "- causa_raiz_pdf: informe del análisis de causa raíz de una falla (numero de la OT, o placa).\n"
+        "- tittanlite_pdf / tittanlite_excel: informe de las inspecciones de TittanLite: composición de llantas "
+        "a piso por marca, dimensión, vida y referencia, estado bueno/regular/crítico, esquema por vehículo y "
+        "novedades (desde, hasta o dias; placa opcional).\n"
         "Si el usuario no dice cuál, elige el más cercano a lo que pidió o pregunta en una frase. Después "
         "confirma en una frase que quedó listo; no describas su contenido.",
         _obj({
             "tipo": {"type": "string", "enum": ["ordenes_excel", "lubricacion_flota_pdf", "lubricacion_muestra_pdf",
-                                               "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf"]},
+                                               "llantas_flota_pdf", "llantas_rendimiento_pdf", "causa_raiz_pdf",
+                                               "tittanlite_pdf", "tittanlite_excel"]},
             "informe_llantas": {"type": "string", "enum": ["TABLERO", "CPK", "KM", "KM_MM", "VIDAS", "COMPOSICION"]},
             "dias": {"type": "integer"}, "marca": {"type": "string"}, "numero": {"type": "string"},
             "placa": {"type": "string"}, "tipo_vehiculo": {"type": "string"},
