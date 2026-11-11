@@ -2690,6 +2690,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/lite/desechos/modelo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Desechos Modelo
+         * @description La pila de desecho de TittanLite para su tablero: una tabla de hechos ya
+         *     agrupada por todas las dimensiones que se filtran en el navegador (daño y
+         *     su clasificación del catálogo, marca, medida, vida, profundidad, mes,
+         *     inspector y sincronización).
+         */
+        get: operations["desechos_modelo_api_v1_eam_lite_desechos_modelo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/lite/disposiciones": {
         parameters: {
             query?: never;
@@ -20493,6 +20516,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    desechos_modelo_api_v1_eam_lite_desechos_modelo_get: {
+        parameters: {
+            query?: {
+                desde?: string | null;
+                hasta?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

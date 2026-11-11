@@ -866,8 +866,17 @@ _NOV = ("(CASE WHEN jsonb_typeof(CAST(ln.novedades AS jsonb)) = 'array' "
         "THEN CAST(ln.novedades AS jsonb) ELSE '[]'::jsonb END)")
 # Mismas claves en todas las tablas que comparten la dimensión (el filtro cruzado
 # las une por nombre).
+def _marca(expr: str) -> str:
+    """La marca como la tiene el catálogo («BF Goodrich» = «BFGOODRICH» = «bf goodrich»):
+    en Lite se escribe a mano, y sin esto cada variante salía como otra marca."""
+    clave = "LOWER(REGEXP_REPLACE({}, '[[:space:]]', '', 'g'))"
+    return (f"UPPER(COALESCE((SELECT mc.nombre FROM eam_marca_neumatico mc WHERE mc.ambito = 'LLANTA' "
+            f"AND {clave.format('mc.nombre')} = {clave.format(expr)} ORDER BY mc.activo DESC, mc.id LIMIT 1), "
+            f"TRIM({expr}), 'SIN MARCA'))")
+
+
 _DIM_LLANTA = f"""
-    UPPER(TRIM(COALESCE(NULLIF(TRIM(ln.marca), ''), n.marca, 'SIN MARCA'))) AS marca,
+    {_marca("COALESCE(NULLIF(TRIM(ln.marca), ''), n.marca)")} AS marca,
     COALESCE(UPPER(REPLACE(COALESCE(NULLIF(TRIM(ln.medida), ''), n.medida), ' ', '')), 'SIN MEDIDA') AS medida,
     'V' || LEAST(COALESCE(ln.reencauches, n.reencauches, 0), 9) AS vida,
     CASE WHEN {_PMIN} IS NULL THEN 'R99'
@@ -942,7 +951,7 @@ async def tablero_modelo(desde: Optional[date] = None, hasta: Optional[date] = N
         SELECT to_char(ln.fecha, 'YYYY-MM') AS mes,
                COALESCE(dc.codigo || ' · ' || dc.nombre, 'Sin daño') AS dano,
                COALESCE(NULLIF(TRIM(dc.causa), ''), 'Sin causa') AS causa,
-               UPPER(TRIM(COALESCE(NULLIF(TRIM(ln.marca), ''), 'SIN MARCA'))) AS marca,
+               {_marca("NULLIF(TRIM(ln.marca), '')")} AS marca,
                COALESCE(UPPER(REPLACE(NULLIF(TRIM(ln.medida), ''), ' ', '')), 'SIN MEDIDA') AS medida,
                'V' || LEAST(COALESCE(ln.reencauches, 0), 9) AS vida,
                CASE WHEN {_PMIN} IS NULL THEN 'R99'
@@ -957,6 +966,47 @@ async def tablero_modelo(desde: Optional[date] = None, hasta: Optional[date] = N
         f[i_tipo] = NOVEDADES_CAMPO.get(f[i_tipo], f[i_tipo])
     return {"piso": _tabla(piso), "novedades": nov, "inspecciones": _tabla(inspecciones),
             "desechos": _tabla(desechos),
+            "umbrales": {"profundidad_minima": u.profundidad_minima, "margen_alerta": u.margen_alerta}}
+
+
+@router.get("/desechos/modelo")
+async def desechos_modelo(desde: Optional[date] = None, hasta: Optional[date] = None,
+                          db: AsyncSession = Depends(get_db)):
+    """La pila de desecho de TittanLite para su tablero: una tabla de hechos ya
+    agrupada por todas las dimensiones que se filtran en el navegador (daño y
+    su clasificación del catálogo, marca, medida, vida, profundidad, mes,
+    inspector y sincronización)."""
+    from sqlalchemy import text
+    from app.core.neumaticos_flota import umbrales
+    u = await umbrales(db)
+    p = _parametros(desde, hasta, u)
+    r = await db.execute(text(f"""
+        SELECT to_char(ln.fecha, 'YYYY-MM') AS mes,
+               COALESCE(NULLIF(TRIM(ln.inspector), ''), 'Sin inspector') AS inspector,
+               COALESCE(dc.codigo || ' · ' || dc.nombre, 'Sin daño') AS dano,
+               COALESCE(NULLIF(TRIM(dc.ubicacion), ''), 'Sin dato') AS ubicacion,
+               COALESCE(NULLIF(TRIM(dc.categoria), ''), 'Sin dato') AS categoria,
+               COALESCE(NULLIF(TRIM(dc.causa), ''), 'Sin causa') AS causa,
+               COALESCE(NULLIF(TRIM(dc.motivo), ''), 'Sin dato') AS motivo,
+               COALESCE(NULLIF(TRIM(dc.responsable), ''), 'Sin dato') AS responsable,
+               {_marca("COALESCE(NULLIF(TRIM(ln.marca), ''), n.marca)")} AS marca,
+               COALESCE(UPPER(REPLACE(COALESCE(NULLIF(TRIM(ln.medida), ''), n.medida), ' ', '')), 'SIN MEDIDA') AS medida,
+               'V' || LEAST(COALESCE(ln.reencauches, n.reencauches, 0), 9) AS vida,
+               CASE WHEN {_PMIN} IS NULL THEN 'R99'
+                    ELSE 'R' || LPAD(CAST(CAST(LEAST(FLOOR({_PMIN} / 2), 8) AS int) AS text), 2, '0') END AS rango,
+               CASE WHEN ln.sync_estado = 'SINCRONIZADA' THEN 'En TittanWare' ELSE 'Solo en Lite' END AS sincronizacion,
+               COUNT(*) AS n, COALESCE(SUM({_PMIN}), 0) AS mm, COUNT({_PMIN}) AS n_mm,
+               COALESCE(SUM(GREATEST({_PMIN} - :minimo, 0)), 0) AS mm_desp,
+               COUNT(*) FILTER (WHERE COALESCE(ln.reparaciones, 0) > 0) AS reparadas,
+               COALESCE(SUM(ln.reparaciones), 0) AS reparaciones,
+               COUNT(*) FILTER (WHERE ln.regrabada) AS regrabadas,
+               COUNT(*) FILTER (WHERE {_PMIN} > :regular) AS con_labrado
+        FROM eam_lite_disposicion ln
+        LEFT JOIN eam_dano_neumatico_catalogo dc ON dc.id = ln.dano_id
+        LEFT JOIN eam_neumatico n ON n.id = (SELECT n2.id FROM eam_neumatico n2 WHERE n2.codigo = ln.codigo LIMIT 1)
+        WHERE (CAST(:d AS timestamp) IS NULL OR ln.fecha >= :d) AND (CAST(:h AS timestamp) IS NULL OR ln.fecha <= :h)
+        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"""), p)
+    return {"desechos": _tabla(r),
             "umbrales": {"profundidad_minima": u.profundidad_minima, "margen_alerta": u.margen_alerta}}
 
 

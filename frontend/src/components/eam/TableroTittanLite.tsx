@@ -8,7 +8,8 @@
  *  - Llantas a piso: las de la ÚLTIMA inspección Lite de cada vehículo en el
  *    periodo, por estado, profundidad, vida, marca, medida y tipo de vehículo.
  *  - Inspecciones: todas las del periodo, por mes e inspector.
- *  - Pila de desecho: las llantas que se desecharon con la app.
+ *  - Pila de desecho: las llantas que se desecharon con la app (tiene además
+ *    su propio tablero, TableroDesechoLite).
  */
 import { useMemo, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Divider, Skeleton, Stack, Typography } from '@mui/material'
@@ -38,6 +39,8 @@ const NOMBRES: Record<string, string> = {
   estado: 'Estado', rango: 'Profundidad', vida: 'Vida', marca: 'Marca', medida: 'Medida',
   tipo_vehiculo: 'Tipo de vehículo', novedad: 'Novedad', tipo_novedad: 'Novedad de campo',
   mes: 'Mes', inspector: 'Inspector', dano: 'Daño', causa: 'Causa',
+  ubicacion: 'Ubicación del daño', categoria: 'Avería', motivo: 'Motivo', responsable: 'Responsable',
+  sincronizacion: 'Sincronización',
 }
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const mesCorto = (m: string) => { const [a, b] = m.split('-'); return b ? `${MESES[Number(b) - 1]} ${a.slice(2)}` : m }
@@ -219,6 +222,123 @@ export function TableroTittanLite({ desde, hasta }: { desde: string; hasta: stri
       {isLoading || !data
         ? <Skeleton variant="rectangular" height={420} sx={{ borderRadius: 3 }} />
         : <Box sx={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity .2s' }}><Tablero modelo={data} /></Box>}
+    </ProveedorFiltros>
+  )
+}
+
+/* ── Tablero de la pila de desecho ─────────────────────────────────────────── */
+type FilaPila = { mes: string; inspector: string; dano: string; ubicacion: string; categoria: string; causa: string
+  motivo: string; responsable: string; marca: string; medida: string; vida: string; rango: string; sincronizacion: string
+  n: number; mm: number; n_mm: number; mm_desp: number; reparadas: number; reparaciones: number; regrabadas: number
+  con_labrado: number }
+const MEDIDAS_PILA = ['n', 'mm', 'n_mm', 'mm_desp', 'reparadas', 'reparaciones', 'regrabadas', 'con_labrado']
+
+function TableroPila({ filas, umbrales }: { filas: FilaPila[]; umbrales: Modelo['umbrales'] }) {
+  const { filtros } = useFiltros()
+  const f = filtrar(filas, filtros)
+  const total = sumar(f, 'n')
+  const medidas = sumar(f, 'n_mm')
+  const remanente = medidas ? sumar(f, 'mm') / medidas : null
+  const desperdicio = sumar(f, 'mm_desp')
+  const conLabrado = sumar(f, 'con_labrado')
+  const reparadas = sumar(f, 'reparadas')
+  const regrabadas = sumar(f, 'regrabadas')
+  const enTW = sumar(f.filter(x => x.sincronizacion === 'En TittanWare'), 'n')
+  const util = umbrales.profundidad_minima + umbrales.margen_alerta
+  const g = (dim: keyof FilaPila & string) => agrupar(filtrar(filas, filtros, dim), dim, MEDIDAS_PILA, 'n')
+  const detalle = (gr: Grupo): LineaDetalle[] => {
+    const s = gr.sumas
+    const l: LineaDetalle[] = []
+    if (s.n_mm) l.push({ etiqueta: 'Profundidad remanente promedio', valor: mm(s.mm / s.n_mm),
+      tono: s.mm / s.n_mm > util ? 'mal' : 'bien' })
+    if (s.mm_desp) l.push({ etiqueta: 'mm desperdiciados', valor: `${numero(s.mm_desp)} mm`, tono: 'alerta' })
+    if (s.n) l.push({ etiqueta: 'Desechadas con labrado útil', valor: `${numero(s.con_labrado)} (${pct(100 * s.con_labrado / s.n)})`,
+      tono: s.con_labrado ? 'alerta' : 'bien' })
+    if (s.reparadas) l.push({ etiqueta: 'Con reparaciones', valor: `${numero(s.reparadas)} (${numero(s.reparaciones)} reparaciones)` })
+    return l
+  }
+  const comun = { nombreMedida: 'Llantas', formato: numero, detalle, vacio: 'Sin desechos con estos filtros' }
+  if (!filas.length) return <Alert severity="info">No hay llantas desechadas con TittanLite en el periodo.</Alert>
+  return (
+    <>
+      <Box sx={{ position: 'sticky', top: 0, zIndex: 5, bgcolor: 'background.default', py: 1, mb: 1 }}>
+        <BarraFiltros formato={formatoFiltro} />
+      </Box>
+      <Card sx={{ borderRadius: 3, p: 2.5, mb: 2 }}>
+        <Stack direction="row" spacing={2.5} flexWrap="wrap" useFlexGap divider={<Divider orientation="vertical" flexItem />}>
+          <Indicador titulo="Llantas desechadas" valor={numero(total)} color={ESTADO.peligro}
+            pie={`${numero(enTW)} también en TittanWare`}
+            que="Llantas a las que se les registró la disposición final con TittanLite en el periodo." />
+          <Indicador titulo="Profundidad remanente" valor={mm(remanente)}
+            pie={medidas < total ? `${numero(total - medidas)} sin medir` : 'promedio de la mínima'}
+            que="Con cuánto labrado se botaron las llantas, en promedio."
+            como="Promedio de la profundidad mínima (el surco más gastado) de cada llanta desechada."
+            lectura={`Lo esperable es cerca del mínimo de retiro (${umbrales.profundidad_minima} mm). Mucho más indica daños prematuros.`} />
+          <Indicador titulo="mm desperdiciados" valor={`${numero(desperdicio)} mm`} alerta={desperdicio > 0}
+            color={desperdicio ? ESTADO.alerta : undefined}
+            pie={`${numero(conLabrado)} desechadas con labrado útil (${pct(total ? 100 * conLabrado / total : null)})`}
+            que="El labrado que se botó por encima del mínimo de retiro: goma pagada que no se rodó."
+            como={`Suma, por llanta, de (profundidad mínima − ${umbrales.profundidad_minima} mm) cuando es positiva. Con labrado útil: por encima de ${util} mm.`} />
+          <Indicador titulo="Con reparaciones" valor={numero(reparadas)}
+            pie={`${numero(sumar(f, 'reparaciones'))} reparaciones · ${numero(regrabadas)} regrabadas`}
+            que="Llantas desechadas que ya habían sido reparadas o regrabadas." />
+        </Stack>
+      </Card>
+
+      <Typography variant="subtitle2" fontWeight={800} mb={1}>Por qué se desechan</Typography>
+      <Box sx={{ display: 'grid', gap: 2, mb: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <GraficoBarras {...comun} dimension="dano" titulo="Por daño" color={ESTADO.peligro} grupos={g('dano')}
+          ayuda="El daño del catálogo de disposición final elegido en campo." />
+        <GraficoBarras {...comun} dimension="causa" titulo="Por causa" color={ESTADO.alerta} grupos={g('causa')} />
+        <GraficoBarras {...comun} dimension="ubicacion" titulo="Dónde está el daño" color={PALETA.grafito} grupos={g('ubicacion')} />
+        <GraficoBarras {...comun} dimension="categoria" titulo="Avería" color={PALETA.grafito} grupos={g('categoria')} />
+        <GraficoBarras {...comun} dimension="motivo" titulo="Motivo" color={COLOR_MODULO} grupos={g('motivo')} />
+        <GraficoBarras {...comun} dimension="responsable" titulo="Responsable" color={COLOR_MODULO} grupos={g('responsable')}
+          ayuda="A quién se le atribuye el daño según el catálogo (operador, vía, fabricante…)." />
+      </Box>
+
+      <Typography variant="subtitle2" fontWeight={800} mb={1}>Qué llantas se desechan</Typography>
+      <Box sx={{ display: 'grid', gap: 2, mb: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <GraficoBarras {...comun} dimension="marca" titulo="Por marca" color={COLOR_MODULO} grupos={g('marca')} />
+        <GraficoBarras {...comun} dimension="medida" titulo="Por medida" color={COLOR_MODULO} grupos={g('medida')} />
+        <GraficoBarras {...comun} dimension="vida" orientacion="vertical" titulo="Vida al desechar" subtitulo="Nueva, R1, R2…"
+          etiqueta={vida} color={COLOR_MODULO} grupos={g('vida')}
+          ayuda="Cuántas veces se había reencauchado la llanta cuando se botó." />
+        <GraficoBarras {...comun} dimension="rango" orientacion="vertical" titulo="Profundidad al desechar"
+          subtitulo="Profundidad mínima, de 2 en 2 mm" etiqueta={rango} color={ESTADO.alerta} grupos={g('rango')}
+          ayuda="Las barras altas lejos del mínimo de retiro son llantas que se perdieron por daño, no por desgaste." />
+      </Box>
+
+      <Typography variant="subtitle2" fontWeight={800} mb={1}>Cuándo y quién</Typography>
+      <Box sx={{ display: 'grid', gap: 2, mb: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <GraficoBarras {...comun} dimension="mes" orientacion="vertical" titulo="Desechos por mes" etiqueta={mesCorto}
+          color={ESTADO.peligro} grupos={g('mes')} />
+        <GraficoBarras {...comun} dimension="inspector" titulo="Por inspector" color={COLOR_MODULO} grupos={g('inspector')} />
+        <GraficoBarras {...comun} dimension="sincronizacion" titulo="Sincronización con TittanWare" color={PALETA.grafito}
+          grupos={g('sincronizacion')}
+          ayuda="Solo en Lite: la llanta no existe en TittanWare o no pasó sus reglas; el registro queda en Lite." />
+      </Box>
+    </>
+  )
+}
+
+export function TableroDesechoLite({ desde, hasta }: { desde: string; hasta: string }) {
+  const { data, isLoading, isFetching, isError } = useQuery<{ desechos: TablaServidor; umbrales: Modelo['umbrales'] }>({
+    queryKey: ['lite-desechos', desde, hasta],
+    queryFn: () => api.get('/eam/lite/desechos/modelo', { params: { desde: desde || undefined, hasta: hasta || undefined }, timeout: 120_000 }).then(r => r.data),
+    placeholderData: p => p,
+  })
+  const filas = useMemo(() => aFilas<FilaPila>(data?.desechos), [data])
+  if (isError) return <Alert severity="error">No se pudo cargar la pila de desecho de TittanLite.</Alert>
+  return (
+    <ProveedorFiltros nombres={NOMBRES}>
+      <Typography fontSize={12.5} color="text.secondary" mb={1}>
+        Las llantas desechadas con la app. Haga clic en cualquier barra para filtrar todo el tablero; Esc limpia.
+        El Excel completo está en Exportar datos de TittanLite.
+      </Typography>
+      {isLoading || !data
+        ? <Skeleton variant="rectangular" height={420} sx={{ borderRadius: 3 }} />
+        : <Box sx={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity .2s' }}><TableroPila filas={filas} umbrales={data.umbrales} /></Box>}
     </ProveedorFiltros>
   )
 }

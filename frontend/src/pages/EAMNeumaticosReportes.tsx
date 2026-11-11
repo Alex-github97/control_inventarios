@@ -7,7 +7,7 @@ import Grid from '@mui/material/Grid2'
 import {
   ArrowBack as BackIcon, PictureAsPdf, Download, DirectionsCar,
   Straighten, PieChart as PieIcon, Dashboard as DashboardIcon, AttachMoney, Speed,
-  Height, ListAlt, Assessment, PhoneAndroid, EventRepeat, Insights, FileDownload,
+  Height, ListAlt, Assessment, PhoneAndroid, EventRepeat, Insights, FileDownload, Recycling,
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -19,7 +19,7 @@ import { FILTROS_VACIOS, FiltrosLlantasBarra, hayFiltros, type FiltrosLlantas } 
 import { TableroRendimiento, InformeMetrica, DetalleVidas, BotonInformePDF } from '@/components/eam/RendimientoLlantas'
 import { EstadoLlantasPiso } from '@/components/eam/EstadoLlantasPiso'
 import { InformeTittanLite } from '@/components/eam/InformeTittanLite'
-import { ExportarTittanLite, TableroTittanLite } from '@/components/eam/TableroTittanLite'
+import { ExportarTittanLite, TableroDesechoLite, TableroTittanLite } from '@/components/eam/TableroTittanLite'
 import { PlanRecambio } from '@/components/eam/PlanRecambio'
 import { BotonesEnviar } from '@/components/mensajeria/Mensajeria'
 
@@ -64,7 +64,7 @@ interface InspeccionHistorial {
 }
 
 type TipoInforme = 'TABLERO' | 'CPK' | 'KM' | 'KM_MM' | 'VIDAS' | 'ESTADO_FLOTA' | 'COMPOSICION' | 'HISTORIAL' | 'TITTANLITE' | 'RECAMBIO'
-  | 'LITE_TABLERO' | 'LITE_EXPORTAR'
+  | 'LITE_TABLERO' | 'LITE_DESECHO' | 'LITE_EXPORTAR'
 
 // Los de rendimiento traen sus propios filtros y descargas; la página solo les
 // pasa el periodo.
@@ -72,7 +72,7 @@ const DE_RENDIMIENTO: TipoInforme[] = ['TABLERO', 'CPK', 'KM', 'KM_MM', 'VIDAS']
 
 const GRUPOS_INFORME = ['Rendimiento y costos', 'Estado e inspecciones', 'TittanLite'] as const
 // Los de TittanLite traen sus propias descargas; la página solo les pasa el periodo.
-const DE_LITE: TipoInforme[] = ['TITTANLITE', 'LITE_TABLERO', 'LITE_EXPORTAR']
+const DE_LITE: TipoInforme[] = ['TITTANLITE', 'LITE_TABLERO', 'LITE_DESECHO', 'LITE_EXPORTAR']
 
 const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo: string; descripcion: string; icono: JSX.Element }[] = [
   {
@@ -128,6 +128,12 @@ const INFORMES: { id: TipoInforme; grupo: typeof GRUPOS_INFORME[number]; titulo:
     titulo: 'Tablero TittanLite',
     descripcion: 'Resultado de las inspecciones de la app: llantas a piso por estado, profundidad, vida y reencauches, marca y medida; inspecciones por mes e inspector y pila de desecho. Clic en una barra filtra todo.',
     icono: <Insights />,
+  },
+  {
+    id: 'LITE_DESECHO', grupo: 'TittanLite',
+    titulo: 'Pila de desecho TittanLite',
+    descripcion: 'Por qué se desechan las llantas en campo: daño, causa, avería, responsable, marca, medida, vida, profundidad remanente y mm desperdiciados.',
+    icono: <Recycling />,
   },
   {
     id: 'TITTANLITE', grupo: 'TittanLite',
@@ -342,7 +348,7 @@ export default function EAMNeumaticosReportes() {
           {INFORMES.filter(inf => inf.grupo === grupo).map(inf => {
             const activo = tipo === inf.id
             return (
-              <Grid key={inf.id} size={{ xs: 12, sm: 6, md: inf.grupo === 'Rendimiento y costos' ? 2.4 : 4 }}>
+              <Grid key={inf.id} size={{ xs: 12, sm: 6, md: inf.grupo === 'Rendimiento y costos' ? 2.4 : inf.grupo === 'TittanLite' ? 3 : 4 }}>
                 <Card
                   onClick={() => setTipo(inf.id)}
                   sx={{
@@ -449,6 +455,7 @@ export default function EAMNeumaticosReportes() {
         {tipo === 'VIDAS' && <DetalleVidas desde={desde} hasta={hasta} />}
         {tipo === 'TITTANLITE' && <InformeTittanLite desde={desde} hasta={hasta} />}
         {tipo === 'LITE_TABLERO' && <TableroTittanLite desde={desde} hasta={hasta} />}
+        {tipo === 'LITE_DESECHO' && <TableroDesechoLite desde={desde} hasta={hasta} />}
         {tipo === 'LITE_EXPORTAR' && <ExportarTittanLite desde={desde} hasta={hasta} />}
         {tipo === 'RECAMBIO' && <PlanRecambio />}
 
