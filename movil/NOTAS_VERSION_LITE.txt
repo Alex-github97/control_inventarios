@@ -1,1 +1,1 @@
-Nuevo ícono con el logo de TittanWare y esquema del vehículo durante la inspección: muestra las profundidades de cada llanta y permite ir a cualquiera tocándola.
+Nuevo ícono y logo de TittanWare (ingreso y cabecera), y esquema del vehículo durante la inspección: muestra las profundidades de cada llanta y permite ir a cualquiera tocándola.

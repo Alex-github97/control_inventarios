@@ -1,21 +1,21 @@
 /**
- * La identidad de TittanWare en TittanLite: el distintivo «TW» (el mismo del
- * portal y del ícono de la app) y la cabecera oscura con el logo.
+ * La identidad de TittanWare en las apps: el logo corporativo (aro y marca,
+ * el mismo del ícono) y la cabecera oscura de TittanLite con el logo.
  */
 import type { ReactNode } from 'react'
-import { Pressable, View } from 'react-native'
+import { Image, Pressable, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
 import { ESPACIO, RADIO, Texto, useTema } from '@/diseno'
 
+const LOGO = require('../../assets/marca/logo.png')
+const LOGO_PEQUENO = require('../../assets/marca/logo-pequeno.png')
+
+/** El logo en su disco blanco. Pequeño, sin el lema (a ese tamaño no se lee). */
 export function LogoTW({ tamano = 40 }: { tamano?: number }) {
-  const { color } = useTema()
   return (
-    <View accessibilityLabel="TittanWare" style={{ width: tamano, height: tamano, borderRadius: tamano * 0.26,
-      backgroundColor: color.acento, alignItems: 'center', justifyContent: 'center' }}>
-      <Texto variante="cuerpoFuerte" style={{ color: color.textoSobreAcento, fontSize: tamano * 0.42, lineHeight: tamano * 0.5,
-        letterSpacing: -tamano * 0.02, fontFamily: 'Inter_800ExtraBold' }}>TW</Texto>
-    </View>
+    <Image source={tamano > 72 ? LOGO : LOGO_PEQUENO} accessibilityLabel="TittanWare" accessibilityRole="image"
+      style={{ width: tamano, height: tamano }} resizeMode="contain" />
   )
 }
 

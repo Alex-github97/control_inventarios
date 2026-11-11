@@ -7,7 +7,6 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native'
 import { Redirect } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Building2, KeyRound, LogIn, UserRound } from 'lucide-react-native'
-import { MARCA } from '@compartido/marca'
 import { Boton, Campo, ESPACIO, Tarjeta, Texto, useTema } from '@/diseno'
 import { useSesion } from '@/datos/sesion'
 import { LogoTW } from '@/lite/marca'
@@ -46,8 +45,9 @@ export default function Ingreso() {
         flexGrow: 1, justifyContent: 'center', padding: ESPACIO.e5, paddingTop: borde.top + ESPACIO.e10, paddingBottom: borde.bottom + ESPACIO.e8, gap: ESPACIO.e8,
       }}>
         <View style={{ alignItems: 'center', gap: ESPACIO.e3 }}>
-          <LogoTW tamano={76} />
-          <Texto variante="titulo" style={{ letterSpacing: 4 }}>{(ES_LITE ? NOMBRE_APP : MARCA.nombre).toUpperCase()}</Texto>
+          <LogoTW tamano={150} />
+          {/* El logo ya dice TITTANWARE: solo TittanLite repite su nombre. */}
+          {ES_LITE && <Texto variante="titulo" style={{ letterSpacing: 4 }}>{NOMBRE_APP.toUpperCase()}</Texto>}
           <Texto tono="secundario" style={{ textAlign: 'center' }}>{ES_LITE ? 'Inspección de llantas en campo' : 'Mantenimiento en campo'}</Texto>
         </View>
 
