@@ -9,7 +9,8 @@
  */
 import { useEffect, useState } from 'react'
 import {
-  Alert, Box, Button, CircularProgress, Dialog, DialogContent, DialogTitle, IconButton, Stack, Tooltip, Typography,
+  Alert, Box, Button, CircularProgress, Dialog, DialogContent, DialogTitle, IconButton, Stack, ToggleButton,
+  ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material'
 import { Close, Download, PhoneAndroid } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
@@ -34,11 +35,18 @@ export function useTieneCmms(): boolean {
   return modulos.includes('*') || modulos.includes('eam')
 }
 
-const PASOS = [
+/** Las dos apps: TittanWare (órdenes del CMMS) y TittanLite (llantas en campo). */
+export type AppMovilId = 'cmms' | 'lite'
+const APPS: Record<AppMovilId, { nombre: string; lema: string }> = {
+  cmms: { nombre: 'TittanWare', lema: 'Las órdenes de trabajo del CMMS en el teléfono' },
+  lite: { nombre: 'TittanLite', lema: 'Inspecciones y disposición final de llantas en campo, sin señal' },
+}
+
+const pasos = (nombre: string) => [
   'Toque «Descargar APK» en el teléfono Android (o escanee el código desde el computador).',
   'Cuando termine, toque la notificación de la descarga o abra el archivo en «Descargas».',
   'Si Android lo pide, permita instalar apps de esta fuente y toque «Instalar».',
-  'Abra TittanWare e ingrese con el código de su empresa, su usuario y su contraseña.',
+  `Abra ${nombre} e ingrese con el código de su empresa, su usuario y su contraseña.`,
 ]
 
 // En el teléfono el panel se arma alrededor del botón; el QR sobra (ya se está en el teléfono).
@@ -46,22 +54,23 @@ const AGENTE = typeof navigator === 'undefined' ? '' : navigator.userAgent
 const ES_IOS = /iPhone|iPad|iPod/i.test(AGENTE)
 const EN_TELEFONO = ES_IOS || /Android/i.test(AGENTE)
 
-export function PanelAppMovil() {
+export function PanelAppMovil({ app = 'cmms' }: { app?: AppMovilId }) {
+  const info = APPS[app]
   const [qr, setQr] = useState<string | null>(null)
   const [descargando, setDescargando] = useState(false)
   const [iniciada, setIniciada] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { data, isLoading, error: errorVersion } = useQuery({
-    queryKey: ['movil-version'],
-    queryFn: () => apiClient.get<VersionApp>('/movil/version').then(r => r.data),
+    queryKey: ['movil-version', app],
+    queryFn: () => apiClient.get<VersionApp>('/movil/version', { params: { app } }).then(r => r.data),
     retry: false,
   })
 
   useEffect(() => {
     if (EN_TELEFONO) return
-    QRCode.toDataURL(`${window.location.origin}/app-movil`, { margin: 1, width: 360, color: { dark: '#0E1013', light: '#FFFFFF' } })
+    QRCode.toDataURL(`${window.location.origin}/app-movil${app === 'lite' ? '?app=lite' : ''}`, { margin: 1, width: 360, color: { dark: '#0E1013', light: '#FFFFFF' } })
       .then(setQr).catch(() => setQr(null))
-  }, [])
+  }, [app])
 
   const descargar = async () => {
     if (!data) return
@@ -71,7 +80,7 @@ export function PanelAppMovil() {
       // Enlace firmado de 10 minutos que abre el propio navegador: así baja con
       // su gestor de descargas. Bajarlo a memoria y armar un `blob:` falla en
       // el teléfono, que es justo donde se descarga.
-      const r = await apiClient.post<{ url: string }>('/movil/enlace-descarga')
+      const r = await apiClient.post<{ url: string }>('/movil/enlace-descarga', null, { params: { app } })
       const base = new URL(apiClient.defaults.baseURL ?? '/api/v1', window.location.href)
       window.location.assign(new URL(r.data.url, base).href)
       setIniciada(true)
@@ -106,10 +115,10 @@ export function PanelAppMovil() {
                 <PhoneAndroid />
               </Box>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="h6" fontWeight={800} lineHeight={1.2}>TittanWare para Android</Typography>
+                <Typography variant="h6" fontWeight={800} lineHeight={1.2}>{info.nombre} para Android</Typography>
                 <Typography variant="body2" sx={{ opacity: .85 }}>
                   {data ? `Versión ${data.version} · publicada ${new Date(data.publicada).toLocaleDateString('es-CO', { dateStyle: 'medium' })}`
-                    : 'Las órdenes de trabajo del CMMS en el teléfono'}
+                    : info.lema}
                 </Typography>
               </Box>
             </Stack>
@@ -169,12 +178,30 @@ export function PanelAppMovil() {
       <Box>
         <Typography variant="subtitle2" fontWeight={700} gutterBottom>Cómo instalarla</Typography>
         <Stack component="ol" spacing={0.75} sx={{ m: 0, pl: 2.5 }}>
-          {PASOS.map(p => <Typography key={p} component="li" variant="body2" color="text.secondary">{p}</Typography>)}
+          {pasos(info.nombre).map(p => <Typography key={p} component="li" variant="body2" color="text.secondary">{p}</Typography>)}
         </Stack>
       </Box>
       <Typography variant="caption" color="text.secondary">
         El teléfono queda vinculado a su usuario por 30 días desde el último uso. Si lo pierde, avise a su administrador para retirarle el acceso.
       </Typography>
+    </Stack>
+  )
+}
+
+/** Elegir cuál de las dos apps descargar, y su panel. */
+export function AppsMoviles({ inicial = 'cmms' }: { inicial?: AppMovilId }) {
+  const [app, setApp] = useState<AppMovilId>(inicial)
+  return (
+    <Stack spacing={2.5}>
+      <ToggleButtonGroup exclusive fullWidth value={app} onChange={(_, v) => v && setApp(v)} aria-label="Qué app descargar">
+        {(Object.keys(APPS) as AppMovilId[]).map(k => (
+          <ToggleButton key={k} value={k} sx={{ textTransform: 'none', py: 1.25, flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+            <Typography fontWeight={800} fontSize={15}>{APPS[k].nombre}</Typography>
+            <Typography fontSize={12} color="text.secondary">{APPS[k].lema}</Typography>
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      <PanelAppMovil key={app} app={app} />
     </Stack>
   )
 }
@@ -193,12 +220,12 @@ export function BotonAppMovil({ sx }: { sx?: object }) {
       </Tooltip>
       <Dialog open={abierto} onClose={() => setAbierto(false)} maxWidth="md" fullWidth fullScreen={EN_TELEFONO}>
         <DialogTitle sx={{ pr: 6 }}>
-          App móvil
+          Apps móviles
           <IconButton aria-label="Cerrar" onClick={() => setAbierto(false)} sx={{ position: 'absolute', right: 12, top: 12 }}>
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent><PanelAppMovil /></DialogContent>
+        <DialogContent><AppsMoviles /></DialogContent>
       </Dialog>
     </>
   )

@@ -216,18 +216,33 @@ class VersionResponse(BaseModel):
     minima: Optional[str] = None
 
 
-def _manifiesto() -> Optional[dict]:
+# Dos apps desde el mismo código: TittanWare (CMMS) en uploads/movil/ y
+# TittanLite (llantas) en uploads/movil/lite/. Cada una con su version.json.
+APPS = {"cmms": ("", "TittanWare"), "lite": ("lite", "TittanLite")}
+
+
+def _app(app: Optional[str]) -> str:
+    return app if app in APPS else "cmms"
+
+
+def _carpeta(app: str) -> Path:
+    sub = APPS[_app(app)][0]
+    return CARPETA_APK / sub if sub else CARPETA_APK
+
+
+def _manifiesto(app: str = "cmms") -> Optional[dict]:
+    carpeta = _carpeta(app)
     try:
-        datos = json.loads((CARPETA_APK / "version.json").read_text(encoding="utf-8"))
+        datos = json.loads((carpeta / "version.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return datos if (CARPETA_APK / datos.get("archivo", "")).is_file() else None
+    return datos if (carpeta / datos.get("archivo", "")).is_file() else None
 
 
 @router.get("/version", response_model=VersionResponse)
-async def version_publicada():
+async def version_publicada(app: str = "cmms"):
     """Pública: la app la consulta antes de ingresar para saber si hay una nueva."""
-    m = _manifiesto()
+    m = _manifiesto(app)
     if m is None:
         raise HTTPException(404, "Todavía no hay una versión publicada de la app.")
     return VersionResponse(**{k: m[k] for k in VersionResponse.model_fields if k in m})
@@ -239,7 +254,7 @@ class EnlaceDescarga(BaseModel):
 
 
 @router.post("/enlace-descarga", response_model=EnlaceDescarga)
-async def enlace_descarga(usuario: Usuario = Depends(get_current_user)):
+async def enlace_descarga(app: str = "cmms", usuario: Usuario = Depends(get_current_user)):
     """Un enlace directo al APK, válido unos minutos.
 
     En el teléfono la descarga tiene que hacerla el navegador, con su gestor de
@@ -249,31 +264,32 @@ async def enlace_descarga(usuario: Usuario = Depends(get_current_user)):
     un enlace, por eso el permiso va firmado en la URL. Se emite aquí, con sesión
     y con el CMMS ya comprobado por el middleware de módulos.
     """
-    if _manifiesto() is None:
+    if _manifiesto(app) is None:
         raise HTTPException(404, "Todavía no hay una versión publicada de la app.")
     vence = datetime.now(timezone.utc) + timedelta(minutes=10)
-    token = firmar({"sub": str(usuario.id), "type": "apk", "exp": vence})
+    token = firmar({"sub": str(usuario.id), "type": "apk", "app": _app(app), "exp": vence})
     return EnlaceDescarga(url=f"/api/v1/movil/apk/{token}", vence=vence)
 
 
-def _servir_apk() -> FileResponse:
-    m = _manifiesto()
+def _servir_apk(app: str = "cmms") -> FileResponse:
+    m = _manifiesto(app)
     if m is None:
         raise HTTPException(404, "Todavía no hay una versión publicada de la app.")
-    return FileResponse(CARPETA_APK / m["archivo"], media_type="application/vnd.android.package-archive",
-                        filename=f"TittanWare-{m['version']}.apk")
+    return FileResponse(_carpeta(app) / m["archivo"], media_type="application/vnd.android.package-archive",
+                        filename=f"{APPS[_app(app)][1]}-{m['version']}.apk")
 
 
 @router.get("/apk/{token}")
 async def descargar_con_enlace(token: str):
     """El APK por el enlace firmado (ruta pública: el permiso es el token)."""
-    if decode_token(token).get("type") != "apk":
+    datos = decode_token(token)
+    if datos.get("type") != "apk":
         raise HTTPException(401, "El enlace de descarga no es válido.")
-    return _servir_apk()
+    return _servir_apk(datos.get("app") or "cmms")
 
 
 @router.get("/descarga")
-async def descargar(_: Usuario = Depends(get_current_user)):
+async def descargar(app: str = "cmms", _: Usuario = Depends(get_current_user)):
     """El APK, solo con sesión: el prefijo /movil pertenece al CMMS, así que el
     middleware de módulos ya negó el paso a una empresa sin él."""
-    return _servir_apk()
+    return _servir_apk(app)

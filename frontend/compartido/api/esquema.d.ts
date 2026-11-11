@@ -29198,7 +29198,9 @@ export interface operations {
     };
     descargar_api_v1_movil_descarga_get: {
         parameters: {
-            query?: never;
+            query?: {
+                app?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -29212,6 +29214,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -29278,7 +29289,9 @@ export interface operations {
     };
     enlace_descarga_api_v1_movil_enlace_descarga_post: {
         parameters: {
-            query?: never;
+            query?: {
+                app?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -29292,6 +29305,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnlaceDescarga"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -29369,7 +29391,9 @@ export interface operations {
     };
     version_publicada_api_v1_movil_version_get: {
         parameters: {
-            query?: never;
+            query?: {
+                app?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -29383,6 +29407,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["app__api__v1__endpoints__movil__VersionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
