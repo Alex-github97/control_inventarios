@@ -321,6 +321,10 @@ class LubeCarga(Base, TimestampMixin):
     # no contra la fecha: un equipo parado no envejece su aceite igual.
     medidor_inicio = Column(Float, nullable=True)
     volumen_litros = Column(Float, nullable=True)
+    # Cada cuánto debe cambiarse esta carga, en la unidad del compartimento
+    # (km u horas). Lo dice quien hace el cambio; sin él se usa la vida
+    # recomendada del producto para ese tipo de compartimento.
+    intervalo_cambio = Column(Float, nullable=True)
     costo_aceite   = Column(Float, nullable=True)
     costo_filtro   = Column(Float, nullable=True)
     costo_mano_obra = Column(Float, nullable=True)
@@ -351,6 +355,9 @@ class LubeRelleno(Base, TimestampMixin):
     carga_id = Column(Integer, ForeignKey("eam_lube_carga.id", ondelete="CASCADE"), nullable=False, index=True)
     fecha    = Column(DateTime, nullable=False)
     litros   = Column(Float, nullable=False)
+    # El lubricante con que se completó el nivel: si no es el de la carga, la
+    # muestra siguiente es una mezcla y así hay que leerla.
+    producto_id = Column(Integer, ForeignKey("eam_lube_producto.id"), nullable=True)
     medidor  = Column(Float, nullable=True)
     costo    = Column(Float, nullable=True)
     motivo   = Column(String(200), nullable=True)

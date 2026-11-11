@@ -1197,6 +1197,10 @@ async def _migrar_esquema(esquema: str) -> None:
             ("erp_facturas_cliente", "resolucion_id", "INTEGER REFERENCES erp_resolucion_facturacion(id)"),
             ("erp_facturas_cliente", "origen", "VARCHAR(20)"),
             ("erp_facturas_cliente", "estado_dian", "VARCHAR(20)"),
+            # Lubricación: el intervalo con que se programó cada cambio de
+            # aceite, y con qué lubricante se hizo cada adición.
+            ("eam_lube_carga", "intervalo_cambio", "DOUBLE PRECISION"),
+            ("eam_lube_relleno", "producto_id", "INTEGER REFERENCES eam_lube_producto(id)"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

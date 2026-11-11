@@ -7169,6 +7169,8 @@ export interface components {
             fecha_llenado: string;
             /** Id */
             id: number;
+            /** Intervalo Cambio */
+            intervalo_cambio?: number | null;
             /** Litros Repuestos */
             litros_repuestos?: number | null;
             /** Medidor Fin */
@@ -7786,6 +7788,8 @@ export interface components {
             frecuencia_muestreo?: number | null;
             /** Id */
             id: number;
+            /** Intervalo Cambio */
+            intervalo_cambio?: number | null;
             /** Medidor Actual */
             medidor_actual?: number | null;
             /** Medidor Inicio Carga */
@@ -7800,6 +7804,8 @@ export interface components {
             observaciones?: string | null;
             /** Producto Actual */
             producto_actual?: string | null;
+            /** Producto Carga Id */
+            producto_carga_id?: number | null;
             /** Producto Recomendado Id */
             producto_recomendado_id?: number | null;
             /** Severidad Ultima */
@@ -9980,12 +9986,24 @@ export interface components {
         MuestraOut: {
             /** Activo Codigo */
             activo_codigo?: string | null;
+            /** Adicion */
+            adicion?: Record<string, never> | null;
+            /**
+             * Adiciones
+             * @default []
+             */
+            adiciones: Record<string, never>[];
             /** Carga Id */
             carga_id?: number | null;
             /** Compartimento */
             compartimento?: string | null;
             /** Compartimento Id */
             compartimento_id: number;
+            /**
+             * Con Adicion
+             * @default false
+             */
+            con_adicion: boolean;
             /** Estado */
             estado: string;
             /** Fecha Resultado */
@@ -11526,6 +11544,8 @@ export interface components {
             medidor?: number | null;
             /** Motivo */
             motivo?: string | null;
+            /** Producto Id */
+            producto_id?: number | null;
         };
         /** RellenoOut */
         RellenoOut: {
@@ -11546,6 +11566,10 @@ export interface components {
             medidor?: number | null;
             /** Motivo */
             motivo?: string | null;
+            /** Producto */
+            producto?: string | null;
+            /** Producto Id */
+            producto_id?: number | null;
             /** Registrado Por */
             registrado_por?: string | null;
         };
@@ -13026,6 +13050,8 @@ export interface components {
              * Format: date-time
              */
             fecha_llenado: string;
+            /** Intervalo Cambio */
+            intervalo_cambio?: number | null;
             /** Medidor Inicio */
             medidor_inicio?: number | null;
             /** Observaciones */

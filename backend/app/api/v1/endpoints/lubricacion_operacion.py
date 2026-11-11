@@ -179,6 +179,8 @@ class CompartimentoOut(CompartimentoIn):
     medidor_actual: Optional[float] = None
     medidor_inicio_carga: Optional[float] = None
     fecha_llenado: Optional[datetime] = None
+    intervalo_cambio: Optional[float] = None
+    producto_carga_id: Optional[int] = None
 
 
 async def _enriquecer_compartimentos(db: AsyncSession, filas) -> List[Dict[str, Any]]:
@@ -254,7 +256,11 @@ async def _enriquecer_compartimentos(db: AsyncSession, filas) -> List[Dict[str, 
             d["medidor_inicio_carga"] = carga.medidor_inicio
             d["fecha_llenado"] = carga.fecha_llenado
             d["vida_actual"] = vida_de_carga(carga, unidad, medidores.get(carga.id), del_equipo)
-            d["vida_recomendada"] = vidas.get((carga.producto_id, comp.tipo_compartimento_id))
+            # El intervalo que se fijó al hacer el cambio manda sobre la vida
+            # recomendada genérica del producto.
+            d["vida_recomendada"] = carga.intervalo_cambio or vidas.get((carga.producto_id, comp.tipo_compartimento_id))
+            d["intervalo_cambio"] = carga.intervalo_cambio
+            d["producto_carga_id"] = carga.producto_id
         sev, fecha = ultimas.get(comp.id, (None, None))
         d["severidad_ultima"], d["fecha_ultima_muestra"] = sev, fecha
         salida.append(d)
@@ -333,6 +339,7 @@ class CargaIn(BaseModel):
     fecha_llenado: datetime
     medidor_inicio: Optional[float] = None
     volumen_litros: Optional[float] = None
+    intervalo_cambio: Optional[float] = None
     costo_aceite: Optional[float] = None
     costo_filtro: Optional[float] = None
     costo_mano_obra: Optional[float] = None
@@ -355,6 +362,7 @@ class CargaOut(BaseModel):
     fecha_llenado: datetime
     medidor_inicio: Optional[float] = None
     volumen_litros: Optional[float] = None
+    intervalo_cambio: Optional[float] = None
     costo_aceite: Optional[float] = None
     costo_filtro: Optional[float] = None
     costo_mano_obra: Optional[float] = None
@@ -463,6 +471,8 @@ async def abrir_carga(data: CargaIn, db: AsyncSession = Depends(get_db),
     validar_fecha(data.fecha_llenado, "fecha del cambio")
     if data.volumen_litros is not None and data.volumen_litros <= 0:
         raise HTTPException(422, "Los litros deben ser mayores que cero")
+    if data.intervalo_cambio is not None and data.intervalo_cambio <= 0:
+        raise HTTPException(422, "El intervalo de cambio debe ser mayor que cero")
     if any((v or 0) < 0 for v in (data.costo_aceite, data.costo_filtro, data.costo_mano_obra)):
         raise HTTPException(422, "Un costo no puede ser negativo")
     if anterior:
@@ -511,6 +521,7 @@ class RellenoIn(BaseModel):
     carga_id: int
     fecha: datetime
     litros: float
+    producto_id: Optional[int] = None
     medidor: Optional[float] = None
     costo: Optional[float] = None
     motivo: Optional[str] = None
@@ -520,13 +531,27 @@ class RellenoOut(RellenoIn):
     model_config = ConfigDict(from_attributes=True)
     id: int
     registrado_por: Optional[str] = None
+    producto: Optional[str] = None
+
+
+async def _rellenos_de(db: AsyncSession, carga_id: int,
+                       hasta: Optional[datetime] = None) -> List[Dict[str, Any]]:
+    q = (select(LubeRelleno, LubeProducto.nombre)
+         .outerjoin(LubeProducto, LubeProducto.id == LubeRelleno.producto_id)
+         .where(LubeRelleno.carga_id == carga_id))
+    if hasta is not None:
+        q = q.where(LubeRelleno.fecha <= hasta)
+    salida = []
+    for r, producto in (await db.execute(q.order_by(LubeRelleno.fecha, LubeRelleno.id))).all():
+        d = RellenoOut.model_validate(r).model_dump()
+        d["producto"] = producto
+        salida.append(d)
+    return salida
 
 
 @router.get("/rellenos", response_model=List[RellenoOut])
 async def listar_rellenos(carga_id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(LubeRelleno).where(LubeRelleno.carga_id == carga_id)
-                         .order_by(LubeRelleno.fecha))
-    return list(r.scalars().all())
+    return await _rellenos_de(db, carga_id)
 
 
 @router.post("/rellenos", response_model=RellenoOut, status_code=201)
@@ -546,9 +571,14 @@ async def crear_relleno(data: RellenoIn, db: AsyncSession = Depends(get_db),
         raise HTTPException(422, "El relleno es anterior al llenado de la carga")
     validar_lectura(data.medidor, carga.medidor_inicio,
                     "lectura del relleno", "lectura del llenado")
+    if data.producto_id is not None and not await db.get(LubeProducto, data.producto_id):
+        raise HTTPException(400, "Ese lubricante no existe")
     obj = LubeRelleno(**data.model_dump(), registrado_por=_quien(usuario))
     db.add(obj); await db.commit(); await db.refresh(obj)
-    return obj
+    d = RellenoOut.model_validate(obj).model_dump()
+    p = await db.get(LubeProducto, obj.producto_id) if obj.producto_id else None
+    d["producto"] = p.nombre if p else None
+    return d
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -790,6 +820,12 @@ class MuestraOut(BaseModel):
     activo_codigo: Optional[str] = None
     compartimento: Optional[str] = None
     resultados: List[Dict[str, Any]] = []
+    # Aceite agregado a la carga antes de tomar la muestra. Una adición diluye
+    # los metales de desgaste y repone aditivos: sin saberlo, la muestra se lee
+    # mejor de lo que está.
+    con_adicion: bool = False
+    adiciones: List[Dict[str, Any]] = []
+    adicion: Optional[Dict[str, Any]] = None
 
 
 async def _resolver_parametros(db: AsyncSession, filas: List[ResultadoIn]) -> List[Dict[str, Any]]:
@@ -852,12 +888,58 @@ async def listar_muestras(respuesta: Response,
     q = (q.order_by(desc(LubeMuestra.fecha_toma), desc(LubeMuestra.id))
          .offset(desplazamiento).limit(limite))
 
+    filas = (await db.execute(q)).all()
+    # Qué muestras tuvieron adición: un relleno de su carga antes de la toma.
+    # Una sola consulta para toda la página.
+    con_adicion = set()
+    ids = [m.id for m, _, _ in filas if m.carga_id]
+    if ids:
+        r = await db.execute(
+            select(LubeMuestra.id).join(LubeRelleno, LubeRelleno.carga_id == LubeMuestra.carga_id)
+            .where(LubeMuestra.id.in_(ids), LubeRelleno.fecha <= LubeMuestra.fecha_toma).distinct())
+        con_adicion = {x for (x,) in r.all()}
     salida = []
-    for m, act, comp in (await db.execute(q)).all():
+    for m, act, comp in filas:
         d = MuestraOut.model_validate(m).model_dump()
         d["activo_codigo"], d["compartimento"] = act, comp
+        d["con_adicion"] = m.id in con_adicion
         salida.append(d)
     return salida
+
+
+async def adiciones_de_muestra(db: AsyncSession, m: LubeMuestra) -> Dict[str, Any]:
+    """Las adiciones de aceite de la carga hasta la toma de la muestra.
+
+    Se marcan las que cayeron después de la muestra anterior de la misma carga:
+    esas son las que afectan la comparación de tendencia. El porcentaje sobre
+    la capacidad dice cuánto se diluyó.
+    """
+    vacio = {"con_adicion": False, "adiciones": [], "adicion": None}
+    if not m.carga_id:
+        return vacio
+    adiciones = await _rellenos_de(db, m.carga_id, hasta=m.fecha_toma)
+    if not adiciones:
+        return vacio
+    anterior = (await db.execute(
+        select(func.max(LubeMuestra.fecha_toma)).where(
+            LubeMuestra.carga_id == m.carga_id, LubeMuestra.id != m.id,
+            LubeMuestra.estado != "ANULADA", LubeMuestra.fecha_toma < m.fecha_toma))).scalar()
+    for a in adiciones:
+        a["desde_muestra_anterior"] = anterior is None or _sin_zona(a["fecha"]) > _sin_zona(anterior)
+    carga = await db.get(LubeCarga, m.carga_id)
+    comp = await db.get(LubeCompartimento, m.compartimento_id)
+    litros = round(sum(a["litros"] or 0 for a in adiciones), 2)
+    recientes = round(sum(a["litros"] or 0 for a in adiciones if a["desde_muestra_anterior"]), 2)
+    capacidad = ((carga.volumen_litros if carga and carga.volumen_litros else None)
+                 or (comp.capacidad_litros if comp else None))
+    distinto = sorted({a["producto"] for a in adiciones
+                       if a.get("producto_id") and carga and carga.producto_id
+                       and a["producto_id"] != carga.producto_id and a["producto"]})
+    return {"con_adicion": True, "adiciones": adiciones, "adicion": {
+        "cantidad": len(adiciones), "litros": litros, "litros_desde_muestra_anterior": recientes,
+        "pct_capacidad": round(100 * litros / capacidad, 1) if capacidad else None,
+        "lubricante_distinto": distinto,
+    }}
 
 
 @router.get("/muestras/{mid}", response_model=MuestraOut)
@@ -876,6 +958,7 @@ async def obtener_muestra(mid: int, db: AsyncSession = Depends(get_db)):
     d = MuestraOut.model_validate(m).model_dump()
     d["activo_codigo"] = act.codigo if act else None
     d["compartimento"] = comp.nombre if comp else None
+    d.update(await adiciones_de_muestra(db, m))
     d["resultados"] = [{
         "id": res.id, "parametro_id": par.id, "codigo": par.codigo, "nombre": par.nombre,
         "unidad": par.unidad, "grupo": par.grupo, "origen_probable": par.origen_probable,

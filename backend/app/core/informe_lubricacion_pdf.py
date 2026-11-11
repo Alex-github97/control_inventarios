@@ -358,6 +358,37 @@ def generar_muestra(d: DatosMuestra, asesor: Asesor, enc: Encabezado) -> bytes:
     pdf.multi_cell(W - 10, 4, limpio(lectura)[:330])
     y = max(pdf.get_y(), y + 24) + 5
 
+    # ── Adición de aceite: va antes de los números porque cambia cómo leerlos ─
+    ad = m.get("adicion") if m.get("con_adicion") else None
+    if ad:
+        ambar = SEVERIDAD.get("MARGINAL", ("", GRIS))[1]
+        partes = [f"{ad['cantidad']} adición(es) antes de la toma, {num(ad['litros'], 1)} L"
+                  + (f" ({num(ad['pct_capacidad'], 1)} % de la capacidad)" if ad.get("pct_capacidad") is not None else "")]
+        for a in (m.get("adiciones") or [])[:4]:
+            partes.append(f"{fecha(a.get('fecha'))}: {num(a.get('litros'), 1)} L"
+                          + (f", lectura {num(a.get('medidor'), 1)}" if a.get("medidor") is not None else "")
+                          + (f", {a['producto']}" if a.get("producto") else ""))
+        texto = "; ".join(partes) + (". El aceite nuevo diluye los metales de desgaste y repone aditivos: "
+                                     "los valores pueden verse mejor de lo que están.")
+        if ad.get("lubricante_distinto"):
+            texto += f" Se completó con otro lubricante ({', '.join(ad['lubricante_distinto'])}): es una mezcla."
+        pdf.set_xy(M + 6, y + 8)
+        pdf.set_font("Helvetica", "", 8)
+        alto = 9 + 4 * len(pdf.multi_cell(W - 10, 4, limpio(texto), dry_run=True, output="LINES"))
+        pdf.set_fill_color(*ambar)
+        pdf.rect(M, y, 2.2, alto, "F")
+        pdf.set_fill_color(*FONDO)
+        pdf.rect(M + 2.2, y, W - 2.2, alto, "F")
+        pdf.set_font("Helvetica", "B", 7.5)
+        pdf.set_text_color(*ambar)
+        pdf.set_xy(M + 6, y + 2.5)
+        pdf.cell(W - 10, 4, limpio("ESTA MUESTRA TUVO ADICIÓN DE ACEITE"))
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*NEGRO)
+        pdf.set_xy(M + 6, y + 7)
+        pdf.multi_cell(W - 10, 4, limpio(texto))
+        y += alto + 5
+
     # ── Resultados ───────────────────────────────────────────────────────────
     detalle = {x["codigo"]: x for x in fila.get("detalle", [])}
     resultados = m.get("resultados") or []

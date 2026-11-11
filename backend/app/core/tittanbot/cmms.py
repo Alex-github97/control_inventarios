@@ -119,6 +119,7 @@ async def _resumen_cambio(c: Contexto, a: dict) -> str:
               f"Entra: {await _nombre(c, 'eam_lube_producto', a.get('producto_id'))}" if a.get("producto_id") else None,
               f"Lectura del equipo: {a['medidor']}" if a.get("medidor") is not None else None,
               f"Litros: {a['litros']}" if a.get("litros") else None,
+              f"Intervalo de cambio: {a['intervalo_cambio']:g}" if a.get("intervalo_cambio") else None,
               f"Fecha: {(a.get('fecha') or _hoy())[:10]}"]
     return " · ".join(p for p in partes if p)
 
@@ -138,7 +139,7 @@ async def _cambio_aceite(c: Contexto, a: dict) -> dict:
     r = await ejecutor.llamar_api("POST", "/api/v1/eam/lube/cargas", c.headers, _limpio({
         "compartimento_id": int(a["compartimento_id"]), "producto_id": a.get("producto_id"),
         "fecha_llenado": cuando, "medidor_inicio": a.get("medidor"), "volumen_litros": a.get("litros"),
-        "costo_aceite": a.get("costo_aceite"), "costo_filtro": a.get("costo_filtro"),
+        "intervalo_cambio": a.get("intervalo_cambio"), "costo_aceite": a.get("costo_aceite"), "costo_filtro": a.get("costo_filtro"),
         "costo_mano_obra": a.get("costo_mano_obra"), "observaciones": a.get("observaciones")}))
     return await _resultado(r)
 
@@ -147,8 +148,10 @@ async def _resumen_relleno(c: Contexto, a: dict) -> str:
     comp = await _compartimento(c, a["compartimento_id"])
     if not comp:
         return "Compartimento inexistente"
-    return " · ".join(p for p in [f"Relleno de aceite · {comp['placa']} · {comp['nombre']}",
+    return " · ".join(p for p in [f"Adición de aceite · {comp['placa']} · {comp['nombre']}",
                                   f"Litros: {a.get('litros')}",
+                                  f"Lubricante: {await _nombre(c, 'eam_lube_producto', a.get('producto_id'))}"
+                                  if a.get("producto_id") else None,
                                   f"Lectura: {a['medidor']}" if a.get("medidor") is not None else None,
                                   f"Costo: ${a['costo']:,.0f}" if a.get("costo") else None,
                                   f"Motivo: {a['motivo']}" if a.get("motivo") else None] if p)
@@ -160,7 +163,7 @@ async def _relleno(c: Contexto, a: dict) -> dict:
         return {"exito": False, "resultado": "Ese compartimento no tiene una carga abierta: primero registre el cambio de aceite."}
     r = await ejecutor.llamar_api("POST", "/api/v1/eam/lube/rellenos", c.headers, _limpio({
         "carga_id": comp["carga_id"], "fecha": _cuando(a.get("fecha")), "litros": a["litros"],
-        "medidor": a.get("medidor"), "costo": a.get("costo"), "motivo": a.get("motivo")}))
+        "producto_id": a.get("producto_id"), "medidor": a.get("medidor"), "costo": a.get("costo"), "motivo": a.get("motivo")}))
     return await _resultado(r)
 
 
@@ -323,13 +326,18 @@ HERRAMIENTAS: List[Herramienta] = [
                       "producto_id": {"type": "integer"}, "medidor": {"type": "number",
                       "description": "Lectura del odómetro u horómetro al hacer el cambio"},
                       "litros": {"type": "number"}, "costo_aceite": {"type": "number"},
+                      "intervalo_cambio": {"type": "number",
+                                           "description": "Cada cuántos km u horas se cambia esta carga"},
                       "costo_filtro": {"type": "number"}, "costo_mano_obra": {"type": "number"},
                       "fecha": {"type": "string", "description": "AAAA-MM-DD; hoy si no se dice"},
                       "observaciones": {"type": "string"}}, ["compartimento_id"]),
                 permiso=EAM, destructiva=True, accion=_cambio_aceite, resumir=_resumen_cambio),
     Herramienta("registrar_relleno",
-                "Registra aceite agregado a un compartimento sin cambiar la carga (relleno).",
+                "Registra una adición de aceite (relleno) a un compartimento sin cambiar la carga, con el "
+                "lubricante usado (producto_id de catalogo_lubricacion). Las muestras posteriores quedan marcadas "
+                "con adición.",
                 _obj({"compartimento_id": {"type": "integer"}, "litros": {"type": "number"},
+                      "producto_id": {"type": "integer"},
                       "medidor": {"type": "number"}, "costo": {"type": "number"}, "motivo": {"type": "string"},
                       "fecha": {"type": "string"}}, ["compartimento_id", "litros"]),
                 permiso=EAM, destructiva=True, accion=_relleno, resumir=_resumen_relleno),

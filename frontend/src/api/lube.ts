@@ -94,6 +94,9 @@ export interface Compartimento {
   /** Lectura más alta conocida del equipo, en la unidad de la vida. */
   medidor_actual?: number | null
   medidor_inicio_carga?: number | null; fecha_llenado?: string | null
+  /** Intervalo fijado al hacer el cambio vigente, en la unidad del compartimento. */
+  intervalo_cambio?: number | null
+  producto_carga_id?: number | null
 }
 
 export interface Carga {
@@ -101,6 +104,7 @@ export interface Carga {
   producto?: string | null
   fecha_llenado: string; medidor_inicio?: number | null
   volumen_litros?: number | null
+  intervalo_cambio?: number | null
   costo_aceite?: number | null; costo_filtro?: number | null
   costo_mano_obra?: number | null
   estado: string
@@ -114,8 +118,19 @@ export interface Carga {
 
 export interface Relleno {
   id: number; carga_id: number; fecha: string; litros: number
+  producto_id?: number | null; producto?: string | null
   medidor?: number | null; costo?: number | null; motivo?: string | null
   registrado_por?: string | null
+  /** Solo en el detalle de una muestra: cayó después de la muestra anterior. */
+  desde_muestra_anterior?: boolean
+}
+
+/** Resumen de las adiciones de aceite antes de la toma de una muestra. */
+export interface AdicionMuestra {
+  cantidad: number; litros: number; litros_desde_muestra_anterior: number
+  pct_capacidad?: number | null
+  /** Lubricantes de las adiciones que no son el de la carga: la muestra es una mezcla. */
+  lubricante_distinto: string[]
 }
 
 export interface ResultadoMuestra {
@@ -142,6 +157,9 @@ export interface Muestra {
   observaciones?: string | null; registrado_por?: string | null
   activo_codigo?: string | null; compartimento?: string | null
   resultados?: ResultadoMuestra[]
+  con_adicion?: boolean
+  adiciones?: Relleno[]
+  adicion?: AdicionMuestra | null
 }
 
 export interface Diagnostico {

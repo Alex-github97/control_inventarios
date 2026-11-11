@@ -31,7 +31,7 @@ import { CargueMasivo } from '@/components/catalogo/CargueMasivo'
 import { PALETA, ESTADO, COLOR_MODULO } from '@/config/marca'
 import {
   lubeApi, informesLubeApi, ETIQUETA_SEVERIDAD, ETIQUETA_DISPARO,
-  type Compartimento, type Pendiente, type ResultadoMuestra,
+  type Compartimento, type Pendiente, type ResultadoMuestra, type Muestra, type Carga, type Relleno,
 } from '@/api/lube'
 import { mensajeDeError } from '@/utils/errorApi'
 
@@ -749,6 +749,11 @@ function ListaMuestras({ onVer }: { onVer: (id: number) => void }) {
                           <FactCheck sx={{ fontSize: 14, color: PALETA.acero }} />
                         </Tooltip>
                       )}
+                      {m.con_adicion && (
+                        <Tooltip title="Tuvo adición de aceite antes de la toma: los valores pueden estar diluidos">
+                          <Opacity aria-label="Con adición de aceite" sx={{ fontSize: 15, color: ESTADO.alerta }} />
+                        </Tooltip>
+                      )}
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -983,6 +988,7 @@ function DetalleMuestra({ id, onCerrar, onCambio }: {
                 automático.
               </Alert>
             )}
+            <AvisoAdicion muestra={muestra} />
             {(muestra?.resultados ?? []).length > 0 && (
               <Typography variant="body2" sx={{ mb: 1.5, color: fuera ? ESTADO.alerta : ESTADO.exito, fontWeight: 700 }}>
                 {fuera
@@ -1204,15 +1210,138 @@ function CampoLectura({ l, unidad, ayuda }: {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Aviso de adición: el aceite agregado antes de la toma diluye los metales de
+   desgaste y repone aditivos. Quien analiza la muestra tiene que saberlo antes
+   de leer los números.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function AvisoAdicion({ muestra }: { muestra?: Muestra | null }) {
+  const a = muestra?.adicion
+  if (!muestra?.con_adicion || !a) return null
+  const recientes = a.litros_desde_muestra_anterior
+  return (
+    <Alert severity="warning" icon={<Opacity />} sx={{ mb: 2 }}>
+      <Typography variant="body2" fontWeight={800}>Esta muestra tuvo adición de aceite</Typography>
+      <Typography variant="body2">
+        {a.cantidad === 1 ? 'Una adición' : `${a.cantidad} adiciones`} en la carga antes de la toma,
+        {' '}{num(a.litros)} L{a.pct_capacidad != null && ` (${num(a.pct_capacidad)} % de la capacidad)`}
+        {recientes > 0 && recientes !== a.litros && `; ${num(recientes)} L después de la muestra anterior`}.
+        {' '}El aceite nuevo diluye los metales de desgaste y repone aditivos: los valores pueden
+        verse mejor de lo que están.
+      </Typography>
+      {a.lubricante_distinto.length > 0 && (
+        <Typography variant="body2" fontWeight={700} mt={0.5}>
+          Se completó con un lubricante distinto al de la carga ({a.lubricante_distinto.join(', ')}):
+          la muestra es una mezcla.
+        </Typography>
+      )}
+      <Box component="ul" sx={{ m: 0, mt: 0.75, pl: 2.5 }}>
+        {(muestra.adiciones ?? []).map(r => (
+          <li key={r.id}>
+            <Typography variant="caption">
+              {fecha(r.fecha)} · {num(r.litros)} L
+              {r.medidor != null && ` · lectura ${num(r.medidor)}`}
+              {r.producto && ` · ${r.producto}`}
+              {r.motivo && ` · ${r.motivo}`}
+              {r.desde_muestra_anterior === false && ' · antes de la muestra anterior'}
+            </Typography>
+          </li>
+        ))}
+      </Box>
+    </Alert>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   El aceite de la muestra: el cambio con que trabaja el compartimento y sus
+   adiciones. Va dentro del registro de la muestra para que el cambio de aceite
+   se registre ANTES y la muestra quede ligada a él, sin salir del formulario.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function CicloAceite({ carga, rellenos, unidad, onCambio, onAdicion }: {
+  carga: Carga | null | undefined; rellenos: Relleno[]; unidad: string
+  onCambio: () => void; onAdicion: () => void
+}) {
+  const litros = rellenos.reduce((t, r) => t + (r.litros ?? 0), 0)
+  return (
+    <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1.5 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}
+        alignItems={{ sm: 'center' }} justifyContent="space-between">
+        <Box>
+          <Typography variant="subtitle2" fontWeight={800}>Aceite de esta muestra</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {carga === undefined ? 'Consultando…' : carga
+              ? `Cambio del ${fecha(carga.fecha_llenado)}`
+                + (carga.producto ? ` · ${carga.producto}` : '')
+                + (carga.medidor_inicio != null ? ` · lectura ${num(carga.medidor_inicio)}` : '')
+                + (carga.intervalo_cambio ? ` · intervalo ${num(carga.intervalo_cambio)} ${unidad}` : '')
+              : 'Sin cambio de aceite registrado'}
+          </Typography>
+          {rellenos.length > 0 && (
+            <Typography variant="caption" display="block" sx={{ color: ESTADO.alerta, fontWeight: 700 }}>
+              {rellenos.length === 1 ? 'Una adición' : `${rellenos.length} adiciones`} en este ciclo
+              ({num(litros)} L): la muestra quedará marcada con adición.
+            </Typography>
+          )}
+        </Box>
+        <Stack direction="row" spacing={1} flexShrink={0}>
+          <Button size="small" variant={carga ? 'outlined' : 'contained'} startIcon={<EventRepeat />}
+            onClick={onCambio} sx={{ textTransform: 'none' }}>
+            {carga ? 'Hubo cambio de aceite' : 'Registrar cambio de aceite'}
+          </Button>
+          <Button size="small" variant="outlined" startIcon={<Opacity />} disabled={!carga}
+            onClick={onAdicion} sx={{ textTransform: 'none' }}>
+            Registrar adición
+          </Button>
+        </Stack>
+      </Stack>
+      {carga === null && (
+        <Alert severity="warning" sx={{ mt: 1.25 }}>
+          Registre primero el cambio de aceite con que trabaja este compartimento: sin él la
+          muestra queda sin vida del aceite y sin muestra anterior con qué comparar.
+        </Alert>
+      )}
+    </Box>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Registro de una muestra, con el lector de boletines.
    ═══════════════════════════════════════════════════════════════════════════ */
 function DialogoMuestra({ compartimento, onCerrar, onListo }: {
   compartimento: Compartimento; onCerrar: () => void; onListo: () => void
 }) {
   const unidad = unidadCorta(compartimento.unidad_vida)
+  const qc = useQueryClient()
+  // La carga se consulta acá y no se toma del compartimento que llega: si se
+  // registra un cambio de aceite desde este mismo formulario, la muestra tiene
+  // que quedar ligada a la carga nueva.
+  const { data: cargaViva } = useQuery({
+    queryKey: ['lube-carga-viva', compartimento.id],
+    queryFn: async () => (await lubeApi.cargas.listar(
+      { compartimento_id: compartimento.id, estado: 'ACTIVA', limite: 1 }))[0] ?? null,
+  })
+  const { data: rellenosCarga = [] } = useQuery({
+    queryKey: ['lube-rellenos', cargaViva?.id],
+    queryFn: () => lubeApi.rellenos.listar(cargaViva!.id),
+    enabled: !!cargaViva?.id,
+  })
+  const [dialogo, setDialogo] = useState<'cambio' | 'adicion' | null>(null)
+  const comp: Compartimento = useMemo(() => cargaViva === undefined ? compartimento : {
+    ...compartimento,
+    carga_id: cargaViva?.id ?? null,
+    medidor_inicio_carga: cargaViva?.medidor_inicio ?? null,
+    producto_actual: cargaViva?.producto ?? null,
+    producto_carga_id: cargaViva?.producto_id ?? null,
+    intervalo_cambio: cargaViva?.intervalo_cambio ?? null,
+    fecha_llenado: cargaViva?.fecha_llenado ?? null,
+  }, [compartimento, cargaViva])
+  const refrescarCiclo = () => {
+    qc.invalidateQueries({ queryKey: ['lube-carga-viva', compartimento.id] })
+    qc.invalidateQueries({ queryKey: ['lube-rellenos'] })
+    onListo()
+  }
   const [numero, setNumero] = useState('')
   const [fechaToma, setFechaToma] = useState(hoy())
-  const lectura = useLectura(compartimento, compartimento.medidor_inicio_carga)
+  const lectura = useLectura(compartimento, comp.medidor_inicio_carga)
   const [laboratorio, setLaboratorio] = useState<number | ''>('')
   const [metodo, setMetodo] = useState<number | ''>(compartimento.metodo_muestreo_id ?? '')
   const [valores, setValores] = useState<Record<string, string>>({})
@@ -1236,13 +1365,14 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
     .filter(([k, v]) => !deTexto.has(k) && v !== '' && (Number.isNaN(Number(v)) || Number(v) < 0))
     .map(([k]) => k)
   const cargados = Object.values(valores).filter(v => v !== '').length
-  const vida = lectura.n != null && compartimento.medidor_inicio_carga != null && !lectura.error
-    ? lectura.n - compartimento.medidor_inicio_carga : null
+  const vida = lectura.n != null && comp.medidor_inicio_carga != null && !lectura.error
+    ? lectura.n - comp.medidor_inicio_carga : null
   const errores = !numero.trim() || !!lectura.error || negativos.length > 0 || fechaToma > hoy()
 
   const guardar = useMutation({
     mutationFn: () => lubeApi.muestras.crear({
       numero: numero.trim(), compartimento_id: compartimento.id,
+      carga_id: cargaViva?.id ?? null,
       fecha_toma: `${fechaToma}T08:00:00`,
       medidor_equipo: lectura.n,
       laboratorio_id: laboratorio || null, metodo_id: metodo || null,
@@ -1295,16 +1425,18 @@ function DialogoMuestra({ compartimento, onCerrar, onListo }: {
         Registrar muestra
         <Typography variant="caption" display="block" color="text.secondary">
           {compartimento.activo_codigo} · {compartimento.nombre}
-          {compartimento.producto_actual && ` · ${compartimento.producto_actual}`}
+          {comp.producto_actual && ` · ${comp.producto_actual}`}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
-          {!compartimento.carga_id && (
-            <Alert severity="warning">
-              Este compartimento no tiene una carga abierta: la muestra quedará sin vida del
-              aceite y sin muestra anterior con qué comparar la tendencia.
-            </Alert>
+          <CicloAceite carga={cargaViva} rellenos={rellenosCarga} unidad={unidad}
+            onCambio={() => setDialogo('cambio')} onAdicion={() => setDialogo('adicion')} />
+          {dialogo === 'cambio' && (
+            <DialogoCarga compartimento={comp} onCerrar={() => setDialogo(null)} onListo={refrescarCiclo} />
+          )}
+          {dialogo === 'adicion' && (
+            <DialogoRelleno compartimento={comp} onCerrar={() => setDialogo(null)} onListo={refrescarCiclo} />
           )}
           <Box>
             <Button component="label" variant="outlined" startIcon={<UploadFile />}
@@ -1412,6 +1544,8 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
   const [fechaLlenado, setFechaLlenado] = useState(hoy())
   const lectura = useLectura(compartimento, reemplaza ? compartimento.medidor_inicio_carga : null)
   const [volumen, setVolumen] = useState(String(compartimento.capacidad_litros ?? ''))
+  // Propuesta: el intervalo del cambio anterior o la vida recomendada del producto.
+  const [intervalo, setIntervalo] = useState(String(compartimento.intervalo_cambio ?? compartimento.vida_recomendada ?? ''))
   const [costoAceite, setCostoAceite] = useState('')
   const [costoFiltro, setCostoFiltro] = useState('')
   const [costoObra, setCostoObra] = useState('')
@@ -1431,6 +1565,7 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
     ? lectura.n - compartimento.medidor_inicio_carga : null
   const errores = faltaMotivo || !!lectura.error || fechaLlenado > hoy()
     || (volumen !== '' && Number(volumen) <= 0)
+    || (intervalo !== '' && !(Number(intervalo) > 0))
     || [costoAceite, costoFiltro, costoObra].some(negativo)
 
   const abrir = useMutation({
@@ -1451,6 +1586,7 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
         fecha_llenado: `${fechaLlenado}T08:00:00`,
         medidor_inicio: lectura.n,
         volumen_litros: volumen === '' ? null : Number(volumen),
+        intervalo_cambio: intervalo === '' ? null : Number(intervalo),
         costo_aceite: costoAceite === '' ? null : Number(costoAceite),
         costo_filtro: costoFiltro === '' ? null : Number(costoFiltro),
         costo_mano_obra: costoObra === '' ? null : Number(costoObra),
@@ -1514,6 +1650,13 @@ function DialogoCarga({ compartimento, onCerrar, onListo }: {
               value={volumen} onChange={e => setVolumen(e.target.value)}
               error={volumen !== '' && Number(volumen) <= 0}
               inputProps={{ min: 0, step: 'any' }} />
+            <TextField size="small" label={`Intervalo de cambio (${unidad})`} type="number" fullWidth
+              value={intervalo} onChange={e => setIntervalo(e.target.value)}
+              error={intervalo !== '' && !(Number(intervalo) > 0)}
+              helperText="Cada cuánto se cambia esta carga"
+              inputProps={{ min: 0, step: 'any' }} />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField size="small" label="Costo del aceite" type="number" fullWidth
               value={costoAceite} onChange={e => setCostoAceite(e.target.value)}
               error={negativo(costoAceite)} inputProps={{ min: 0 }}
@@ -1562,8 +1705,12 @@ function DialogoRelleno({ compartimento, onCerrar, onListo }: {
   const [litros, setLitros] = useState('')
   const [costo, setCosto] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [producto, setProducto] = useState<number | ''>(compartimento.producto_carga_id ?? '')
   const lectura = useLectura(compartimento, compartimento.medidor_inicio_carga)
   const [intento, setIntento] = useState(false)
+  const { data: productos = [] } = useQuery({
+    queryKey: ['lube-productos'], queryFn: () => lubeApi.productos.listar(),
+  })
 
   const { data: anteriores = [] } = useQuery({
     queryKey: ['lube-rellenos', compartimento.carga_id],
@@ -1578,17 +1725,17 @@ function DialogoRelleno({ compartimento, onCerrar, onListo }: {
   const guardar = useMutation({
     mutationFn: () => lubeApi.rellenos.crear({
       carga_id: compartimento.carga_id, fecha: `${fechaR}T08:00:00`,
-      litros: Number(litros), medidor: lectura.n,
+      litros: Number(litros), medidor: lectura.n, producto_id: producto || null,
       costo: costo === '' ? null : Number(costo), motivo: motivo.trim() || null,
     }),
-    onSuccess: () => { toast.success('Relleno registrado'); onListo(); onCerrar() },
+    onSuccess: () => { toast.success('Adición registrada'); onListo(); onCerrar() },
     onError: (e: any) => toast.error(mensajeDeError(e)),
   })
 
   return (
     <Dialog open onClose={onCerrar} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 800 }}>
-        Relleno de aceite
+        Adición de aceite
         <Typography variant="caption" display="block" color="text.secondary">
           {compartimento.activo_codigo} · {compartimento.nombre}
           {compartimento.producto_actual && ` · ${compartimento.producto_actual}`}
@@ -1622,6 +1769,16 @@ function DialogoRelleno({ compartimento, onCerrar, onListo }: {
               inputProps={{ min: 0 }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
           </Stack>
+          <TextField select size="small" label="Lubricante agregado" value={producto}
+            onChange={e => setProducto(Number(e.target.value) || '')}
+            helperText={producto && compartimento.producto_carga_id && producto !== compartimento.producto_carga_id
+              ? 'Distinto al de la carga: las muestras siguientes se leerán como mezcla'
+              : 'El mismo de la carga, salvo que se haya completado con otro'}>
+            <MenuItem value="">—</MenuItem>
+            {productos.map(p => (
+              <MenuItem key={p.id} value={p.id}>{p.marca} {p.nombre}</MenuItem>
+            ))}
+          </TextField>
           <TextField size="small" label="Motivo u observación" value={motivo}
             onChange={e => setMotivo(e.target.value)} placeholder="Nivel bajo en la inspección diaria, fuga por el retén…" />
         </Stack>
@@ -1631,7 +1788,7 @@ function DialogoRelleno({ compartimento, onCerrar, onListo }: {
         <Button variant="contained" disabled={guardar.isPending}
           onClick={() => { setIntento(true); if (!errores) guardar.mutate() }}
           sx={{ textTransform: 'none', fontWeight: 700 }}>
-          {guardar.isPending ? 'Guardando…' : 'Registrar relleno'}
+          {guardar.isPending ? 'Guardando…' : 'Registrar adición'}
         </Button>
       </DialogActions>
     </Dialog>
