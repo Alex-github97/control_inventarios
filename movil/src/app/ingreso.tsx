@@ -10,6 +10,7 @@ import { Building2, KeyRound, LogIn, UserRound } from 'lucide-react-native'
 import { MARCA } from '@compartido/marca'
 import { Boton, Campo, ESPACIO, RADIO, Tarjeta, Texto, useTema } from '@/diseno'
 import { useSesion } from '@/datos/sesion'
+import { ES_LITE, NOMBRE_APP, RUTA_INICIO } from '@/datos/variante'
 
 export default function Ingreso() {
   const { color } = useTema()
@@ -21,7 +22,7 @@ export default function Ingreso() {
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
-  if (actual) return <Redirect href="/ordenes" />
+  if (actual) return <Redirect href={RUTA_INICIO} />
 
   const listo = empresa.trim() && usuario.trim() && clave
   const enviar = async () => {
@@ -45,10 +46,10 @@ export default function Ingreso() {
       }}>
         <View style={{ alignItems: 'center', gap: ESPACIO.e3 }}>
           <View style={{ width: 72, height: 72, borderRadius: RADIO.xl, backgroundColor: color.acento, alignItems: 'center', justifyContent: 'center' }}>
-            <Texto variante="titulo" style={{ color: color.textoSobreAcento }}>T</Texto>
+            <Texto variante="titulo" style={{ color: color.textoSobreAcento }}>{ES_LITE ? 'L' : 'T'}</Texto>
           </View>
-          <Texto variante="titulo" style={{ letterSpacing: 4 }}>{MARCA.nombre.toUpperCase()}</Texto>
-          <Texto tono="secundario" style={{ textAlign: 'center' }}>Mantenimiento en campo</Texto>
+          <Texto variante="titulo" style={{ letterSpacing: 4 }}>{(ES_LITE ? NOMBRE_APP : MARCA.nombre).toUpperCase()}</Texto>
+          <Texto tono="secundario" style={{ textAlign: 'center' }}>{ES_LITE ? 'Inspección de llantas en campo' : 'Mantenimiento en campo'}</Texto>
         </View>
 
         <Tarjeta style={{ gap: ESPACIO.e4 }}>
