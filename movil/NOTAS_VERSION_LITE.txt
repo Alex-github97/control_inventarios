@@ -1,0 +1,1 @@
+Primera versión: inspecciones y disposición final de llantas en campo, sin señal, y envío de informes por WhatsApp o Telegram.

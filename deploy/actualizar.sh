@@ -27,9 +27,11 @@ flock 9
 # archivo llega por la entrada estándar. Se guarda ANTES de cualquier otra
 # cosa, porque `docker compose exec` también lee la entrada y se lo comería.
 APK_ENTRANTE=""
-if [[ "${SSH_ORIGINAL_COMMAND:-}" =~ ^publicar-apk\ ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\ ([0-9]{1,6})$ ]]; then
+# Un tercer campo opcional elige la app: «lite» publica TittanLite.
+if [[ "${SSH_ORIGINAL_COMMAND:-}" =~ ^publicar-apk\ ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\ ([0-9]{1,6})(\ (lite))?$ ]]; then
   APK_VERSION="${BASH_REMATCH[1]}"
   APK_CODIGO="${BASH_REMATCH[2]}"
+  APK_APP="${BASH_REMATCH[4]:-cmms}"
   APK_ENTRANTE="$(mktemp /tmp/tittanware-apk.XXXXXX)"
   head -c 300000000 > "$APK_ENTRANTE"
 fi
@@ -68,12 +70,14 @@ pedido_extra() {
   # Opcionales al final: activos y meses del CMMS coherente.
   local patron='^reducir-carga ([0-9]{1,4}) ([0-9]{1,6}) ([0-9]{1,6})( ([0-9]{1,5}) ([0-9]{1,3}))?$'
   if [[ -n "$APK_ENTRANTE" ]]; then
-    echo "── Publicación de la app móvil ${APK_VERSION}"
-    local destino="/app/uploads/movil/entrante-${APK_VERSION}.apk"
+    echo "── Publicación de la app móvil (${APK_APP}) ${APK_VERSION}"
+    local destino="/app/uploads/movil/entrante-${APK_APP}-${APK_VERSION}.apk"
+    local notas="movil/NOTAS_VERSION.txt"
+    [[ "$APK_APP" == lite ]] && notas="movil/NOTAS_VERSION_LITE.txt"
     $COMPOSE exec -T backend mkdir -p /app/uploads/movil
     $COMPOSE cp "$APK_ENTRANTE" "backend:${destino}"
     rm -f "$APK_ENTRANTE"
-    $COMPOSE exec -T backend python tools/publicar_apk.py "$destino" --version "$APK_VERSION" --codigo "$APK_CODIGO" --notas "$(cat movil/NOTAS_VERSION.txt 2>/dev/null || true)"
+    $COMPOSE exec -T backend python tools/publicar_apk.py "$destino" --app "$APK_APP" --version "$APK_VERSION" --codigo "$APK_CODIGO" --notas "$(cat "$notas" 2>/dev/null || true)"
     $COMPOSE exec -T backend rm -f "$destino"
     return
   fi

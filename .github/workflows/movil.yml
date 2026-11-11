@@ -1,7 +1,8 @@
 # Construye, firma y publica el APK de la app móvil del CMMS.
 #
-# Se dispara con una etiqueta movil-vX.Y.Z (la versión debe coincidir con
-# movil/app.json) o a mano desde Actions. Necesita, además de los secretos del
+# Se dispara con una etiqueta movil-vX.Y.Z (TittanWare) o lite-vX.Y.Z
+# (TittanLite) —la versión debe coincidir con movil/app.json— o a mano desde
+# Actions eligiendo la app. Necesita, además de los secretos del
 # despliegue, dos del repositorio:
 #   MOVIL_FIRMA_JKS   la llave movil/firma/tittanware.jks en base64 (una línea)
 #   MOVIL_FIRMA_CLAVE el contenido de movil/firma/clave.txt
@@ -12,8 +13,14 @@ name: App móvil
 
 on:
   push:
-    tags: ['movil-v*']
+    tags: ['movil-v*', 'lite-v*']
   workflow_dispatch:
+    inputs:
+      app:
+        description: 'Qué app publicar'
+        type: choice
+        options: [cmms, lite]
+        default: cmms
 
 concurrency:
   group: produccion
@@ -32,11 +39,17 @@ jobs:
         run: |
           VERSION=$(python3 -c "import json;print(json.load(open('movil/app.json'))['expo']['version'])")
           CODIGO=$(python3 -c "import json;print(json.load(open('movil/app.json'))['expo']['android']['versionCode'])")
-          if [[ "$GITHUB_REF" == refs/tags/movil-v* && "${GITHUB_REF#refs/tags/movil-v}" != "$VERSION" ]]; then
-            echo "::error::La etiqueta ${GITHUB_REF#refs/tags/} no coincide con la versión $VERSION de movil/app.json"; exit 1
+          APP="${{ github.event.inputs.app || 'cmms' }}"
+          [[ "$GITHUB_REF" == refs/tags/lite-v* ]] && APP=lite
+          ETIQUETA="${GITHUB_REF#refs/tags/}"
+          if [[ "$GITHUB_REF" == refs/tags/* && "${ETIQUETA#*-v}" != "$VERSION" ]]; then
+            echo "::error::La etiqueta $ETIQUETA no coincide con la versión $VERSION de movil/app.json"; exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "codigo=$CODIGO" >> "$GITHUB_OUTPUT"
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          echo "nombre=$([ "$APP" = lite ] && echo TittanLite || echo TittanWare)" >> "$GITHUB_OUTPUT"
+          echo "extra=$([ "$APP" = lite ] && echo ' lite' || true)" >> "$GITHUB_OUTPUT"
 
       - name: Llave de firma
         env:
@@ -49,6 +62,8 @@ jobs:
           printf '%s' "$CLAVE" | tr -d '\r\n' > movil/firma/clave.txt
 
       - name: Compilar y firmar
+        env:
+          APP_VARIANT: ${{ steps.version.outputs.app == 'lite' && 'lite' || '' }}
         run: |
           docker build -t tw-android movil/compilar
           docker volume create ci_movil_nm >/dev/null
@@ -73,6 +88,6 @@ jobs:
         run: |
           ssh -i ~/.ssh/despliegue -o StrictHostKeyChecking=yes \
             "${{ secrets.SERVIDOR_USUARIO }}@${{ secrets.SERVIDOR_HOST }}" \
-            "publicar-apk ${{ steps.version.outputs.version }} ${{ steps.version.outputs.codigo }}" \
-            < "movil/compilar/salida/TittanWare-${{ steps.version.outputs.version }}.apk"
-          curl -fsS https://app.tittanware.com/api/v1/movil/version
+            "publicar-apk ${{ steps.version.outputs.version }} ${{ steps.version.outputs.codigo }}${{ steps.version.outputs.extra }}" \
+            < "movil/compilar/salida/${{ steps.version.outputs.nombre }}-${{ steps.version.outputs.version }}.apk"
+          curl -fsS "https://app.tittanware.com/api/v1/movil/version?app=${{ steps.version.outputs.app }}"
