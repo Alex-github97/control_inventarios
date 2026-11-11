@@ -19,12 +19,20 @@ import Grid from '@mui/material/Grid2'
 import { Add, DeleteForever, Download, EventRepeat } from '@mui/icons-material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import {
+  Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
+} from 'recharts'
 import { apiClient as api } from '@/api/client'
 import { mensajeDeError } from '@/utils/errorApi'
 
 const B = '/eam/neumaticos/proyeccion'
 const EJES = ['Direccional', 'Tracción', 'Libre', 'Sin dato de eje'] as const
-const COLOR_EJE: Record<string, string> = { Direccional: '#2563EB', 'Tracción': '#D97706', Libre: '#16A34A', 'Sin dato de eje': '#94A3B8' }
+// Orden categórico validado (CVD ΔE ≥ 9): azul, naranja, aqua. «Sin dato» va en
+// gris y siempre con su rótulo: no es una serie que se compare.
+const COLOR_EJE: Record<string, string> = { Direccional: '#2a78d6', 'Tracción': '#eb6834', Libre: '#1baf7a', 'Sin dato de eje': '#a8a29e' }
+const SERIE = '#2a78d6'
+const GRILLA = '#ECEAE4'
+const TINTA2 = '#6b6a63'
 const n = (x: number | null | undefined) => x == null ? '—' : Math.round(x).toLocaleString('es-CO')
 const nombreMes = (m: string) => {
   if (m === 'Vencidas') return 'Vencidas'
@@ -44,7 +52,9 @@ interface Plan {
   origen: string; total_llantas: number
   configuracion: { mm_utiles: number | null; por_medida: Record<string, number>; profundidad_minima: number; ventana_km_diario: number }
   plan: { meses: Mes[]; total: number; por_eje: Record<string, number>; por_medida: Record<string, number>
-    sin_fecha: Record<string, number>; llantas: number; km_proyectado_promedio: number | null }
+    sin_fecha: Record<string, number>; llantas: number; km_proyectado_promedio: number | null
+    urgencia?: { rango: string; cantidad: number }[]; por_vehiculo?: { placa: string; cantidad: number }[]
+    por_marca?: { marca: string; cantidad: number }[] }
   llantas: Proy[]
 }
 
@@ -202,6 +212,7 @@ export function PlanRecambio() {
             <Grid size={{ xs: 12, md: 3 }}><Kpi titulo="Km proyectado promedio" valor={`${n(data.plan.km_proyectado_promedio)} km`}
               nota={Object.keys(data.plan.sin_fecha).length ? `Sin fecha: ${Object.entries(data.plan.sin_fecha).map(([m, c]) => `${c} ${m}`).join(', ')}` : 'todas con fecha estimada'} /></Grid>
           </Grid>
+          <TableroPlan data={data} />
           <Card variant="outlined">
             <CardContent sx={{ pb: 0 }}>
               <Typography fontWeight={700} fontSize={14}>Llantas a cambiar por mes y tipo de eje</Typography>
@@ -289,6 +300,94 @@ export function PlanRecambio() {
         </>
       )}
     </Stack>
+  )
+}
+
+/* ── Tablero ───────────────────────────────────────────────────────────────── */
+const ejesConDatos = (plan: Plan['plan']) => EJES.filter(e => (plan.por_eje[e] ?? 0) > 0)
+
+function TarjetaGrafico({ titulo, ayuda, alto = 260, children }: { titulo: string; ayuda?: string; alto?: number; children: React.ReactElement }) {
+  return (
+    <Card variant="outlined" sx={{ height: '100%' }}>
+      <CardContent>
+        <Typography fontWeight={700} fontSize={14}>{titulo}</Typography>
+        {ayuda && <Typography fontSize={11.5} color="text.secondary" mb={1}>{ayuda}</Typography>}
+        <Box sx={{ height: alto }}><ResponsiveContainer>{children}</ResponsiveContainer></Box>
+      </CardContent>
+    </Card>
+  )
+}
+
+const ejeX = { tick: { fontSize: 11, fill: TINTA2 }, axisLine: false, tickLine: false }
+const tooltipNum = (v: number, nombre: string) => [`${n(v)} llantas`, nombre]
+
+function TableroPlan({ data }: { data: Plan }) {
+  const ejes = ejesConDatos(data.plan)
+  const porMes = data.plan.meses.map(m => ({ mes: m.mes === 'Vencidas' ? 'Vencidas' : nombreMes(m.mes).replace(' de ', ' '), ...m.por_eje }))
+  const dims = Object.keys(data.plan.por_medida).slice(0, 8).map(med => {
+    const fila: Record<string, string | number> = { medida: med }
+    for (const e of ejes) fila[e] = data.plan.meses.reduce((t, m) => t + (m.cruce.find(x => x.eje === e && x.medida === med)?.cantidad ?? 0), 0)
+    return fila
+  })
+  const urgencia = (data.plan.urgencia ?? []).filter(u => u.cantidad > 0)
+  const vehiculos = data.plan.por_vehiculo ?? []
+  // El tope redondeado va en el último segmento de cada barra apilada.
+  const ultimo = ejes[ejes.length - 1]
+  const apilado = (horizontal: boolean) => ejes.map(e => (
+    <Bar key={e} dataKey={e} stackId="eje" fill={COLOR_EJE[e]} stroke="#FFFFFF" strokeWidth={2}
+      radius={e === ultimo ? (horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]) : 0} maxBarSize={horizontal ? 22 : 38} />
+  ))
+  return (
+    <Grid container spacing={2} aria-label="Tablero del plan de recambio">
+      <Grid size={{ xs: 12, lg: 8 }}>
+        <TarjetaGrafico titulo="Llantas a cambiar por mes" ayuda="Apiladas por tipo de eje. «Vencidas» ya pasaron su fecha estimada.">
+          <BarChart data={porMes} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke={GRILLA} />
+            <XAxis dataKey="mes" {...ejeX} interval={0} />
+            <YAxis {...ejeX} width={48} allowDecimals={false} tickFormatter={v => n(v)} />
+            <RTooltip formatter={tooltipNum} cursor={{ fill: 'rgba(42,120,214,0.06)' }} />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} formatter={v => <span style={{ color: TINTA2 }}>{v}</span>} />
+            {apilado(false)}
+          </BarChart>
+        </TarjetaGrafico>
+      </Grid>
+      <Grid size={{ xs: 12, lg: 4 }}>
+        <TarjetaGrafico titulo="Urgencia" ayuda="Cuántas llantas se acaban en cada plazo, dentro del horizonte.">
+          <BarChart data={urgencia} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
+            <CartesianGrid horizontal={false} stroke={GRILLA} />
+            <XAxis type="number" {...ejeX} allowDecimals={false} tickFormatter={v => n(v)} />
+            <YAxis type="category" dataKey="rango" {...ejeX} width={104} />
+            <RTooltip formatter={(v: number) => [`${n(v)} llantas`, 'Llantas']} cursor={{ fill: 'rgba(42,120,214,0.06)' }} />
+            <Bar dataKey="cantidad" fill={SERIE} radius={[0, 4, 4, 0]} maxBarSize={22}
+              label={{ position: 'right', fontSize: 11, fill: TINTA2, formatter: (v: number) => n(v) }} />
+          </BarChart>
+        </TarjetaGrafico>
+      </Grid>
+      <Grid size={{ xs: 12, lg: 6 }}>
+        <TarjetaGrafico titulo="Por dimensión y tipo de eje" ayuda="Las 8 dimensiones con más cambios en el horizonte." alto={Math.max(200, dims.length * 34 + 60)}>
+          <BarChart data={dims} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
+            <CartesianGrid horizontal={false} stroke={GRILLA} />
+            <XAxis type="number" {...ejeX} allowDecimals={false} tickFormatter={v => n(v)} />
+            <YAxis type="category" dataKey="medida" {...ejeX} width={96} />
+            <RTooltip formatter={tooltipNum} cursor={{ fill: 'rgba(42,120,214,0.06)' }} />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} formatter={v => <span style={{ color: TINTA2 }}>{v}</span>} />
+            {apilado(true)}
+          </BarChart>
+        </TarjetaGrafico>
+      </Grid>
+      <Grid size={{ xs: 12, lg: 6 }}>
+        <TarjetaGrafico titulo="Vehículos con más llantas por cambiar" ayuda="Los 12 primeros dentro del horizonte." alto={Math.max(200, vehiculos.length * 26 + 40)}>
+          <BarChart data={vehiculos} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }}>
+            <CartesianGrid horizontal={false} stroke={GRILLA} />
+            <XAxis type="number" {...ejeX} allowDecimals={false} />
+            <YAxis type="category" dataKey="placa" {...ejeX} width={80} />
+            <RTooltip formatter={(v: number) => [`${n(v)} llantas`, 'Llantas']} cursor={{ fill: 'rgba(42,120,214,0.06)' }} />
+            <Bar dataKey="cantidad" fill={SERIE} radius={[0, 4, 4, 0]} maxBarSize={18}
+              label={{ position: 'right', fontSize: 11, fill: TINTA2 }} />
+          </BarChart>
+        </TarjetaGrafico>
+      </Grid>
+    </Grid>
   )
 }
 

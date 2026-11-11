@@ -297,6 +297,12 @@ def plan(proyecciones: List[Proyeccion], meses: int = 6) -> Dict[str, Any]:
     limite = date(hoy.year + (hoy.month - 1 + meses) // 12, (hoy.month - 1 + meses) % 12 + 1, 1)
     por_mes: Dict[str, Dict[str, Any]] = {}
     sin_fecha = defaultdict(int)
+    # Para el tablero: qué tan urgente, qué vehículos y qué marcas.
+    rangos = [("Vencidas", 0), ("En 30 días", 30), ("31 a 90 días", 90), ("91 a 180 días", 180),
+              ("Más de 180 días", 10 ** 6)]
+    urgencia = {r: 0 for r, _ in rangos}
+    por_vehiculo: Dict[str, int] = defaultdict(int)
+    por_marca: Dict[str, int] = defaultdict(int)
     for p in proyecciones:
         if p.fecha_cambio is None:
             motivo = ("sin km diario del vehículo" if p.km_faltantes is not None and not p.km_diario
@@ -306,6 +312,9 @@ def plan(proyecciones: List[Proyeccion], meses: int = 6) -> Dict[str, Any]:
         if p.fecha_cambio >= limite:
             continue
         mes = "Vencidas" if p.dias_restantes is not None and p.dias_restantes <= 0 else p.fecha_cambio.strftime("%Y-%m")
+        urgencia[next(r for r, tope in rangos if (p.dias_restantes or 0) <= tope)] += 1
+        por_vehiculo[p.placa or "Sin placa"] += 1
+        por_marca[(p.marca or SIN_DATO).strip().upper()] += 1
         m = por_mes.setdefault(mes, {"mes": mes, "total": 0, "por_eje": defaultdict(int), "por_medida": defaultdict(int),
                                      "cruce": defaultdict(int)})
         eje = EJES.get(p.tipo_uso, "Sin dato de eje")
@@ -332,6 +341,9 @@ def plan(proyecciones: List[Proyeccion], meses: int = 6) -> Dict[str, Any]:
         "total": sum(m["total"] for m in filas),
         "por_eje": dict(totales_eje), "por_medida": dict(sorted(totales_medida.items(), key=lambda kv: -kv[1])),
         "sin_fecha": dict(sin_fecha), "llantas": len(proyecciones),
+        "urgencia": [{"rango": r, "cantidad": c} for r, c in urgencia.items()],
+        "por_vehiculo": [{"placa": k, "cantidad": v} for k, v in sorted(por_vehiculo.items(), key=lambda kv: -kv[1])[:12]],
+        "por_marca": [{"marca": k, "cantidad": v} for k, v in sorted(por_marca.items(), key=lambda kv: -kv[1])[:10]],
         "km_proyectado_promedio": round(sum(p.km_proyectado for p in con) / len(con)) if con else None,
     }
 
