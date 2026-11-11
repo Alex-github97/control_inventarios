@@ -74,19 +74,25 @@ class DestinatarioIn(BaseModel):
     correo: Optional[str] = Field(None, max_length=160)
     telegram_usuario: Optional[str] = Field(None, max_length=80)
     activo: bool = True
+    tipo: str = "PERSONA"          # PERSONA | GRUPO_TELEGRAM
 
 
 def _dest(d: MensajeriaDestinatario, bot: Optional[str], codigo: str) -> Dict[str, Any]:
-    return {"id": d.id, "alias": d.alias, "telefono": d.telefono, "correo": d.correo,
-            "telegram_usuario": d.telegram_usuario, "activo": d.activo,
+    grupo = d.tipo == "GRUPO_TELEGRAM"
+    param = "startgroup" if grupo else "start"
+    return {"id": d.id, "alias": d.alias, "tipo": d.tipo or "PERSONA", "telefono": d.telefono, "correo": d.correo,
+            "telegram_usuario": d.telegram_usuario, "telegram_titulo": d.telegram_titulo, "activo": d.activo,
             "telegram_vinculado": bool(d.telegram_chat_id),
-            "enlace_telegram": f"https://t.me/{bot}?start={codigo}-{d.token_vinculo}" if bot and d.token_vinculo else None}
+            "enlace_telegram": f"https://t.me/{bot}?{param}={codigo}-{d.token_vinculo}" if bot and d.token_vinculo else None}
 
 
 def _limpio(data: DestinatarioIn) -> Dict[str, Any]:
     v = data.model_dump()
+    v["tipo"] = "GRUPO_TELEGRAM" if (v.get("tipo") or "").upper() == "GRUPO_TELEGRAM" else "PERSONA"
     for k in ("telefono", "correo", "telegram_usuario"):
         v[k] = (v[k] or "").strip() or None
+        if v["tipo"] == "GRUPO_TELEGRAM":
+            v[k] = None            # un grupo solo recibe por Telegram
     if v["correo"] and "@" not in v["correo"]:
         raise HTTPException(422, "El correo no es válido")
     if v["telegram_usuario"]:
@@ -186,8 +192,17 @@ async def enviar_informes(db: AsyncSession, usuario: Usuario, headers: Dict[str,
             try:
                 if canal == "TELEGRAM":
                     if not d.telegram_chat_id:
-                        raise m.ErrorMensajeria("todavía no abrió su enlace del bot de Telegram")
-                    await m.telegram_documento(d.telegram_chat_id, contenido, nombre, texto)
+                        raise m.ErrorMensajeria("el grupo todavía no está vinculado al bot de Telegram"
+                                                if d.tipo == "GRUPO_TELEGRAM" else
+                                                "todavía no abrió su enlace del bot de Telegram")
+                    try:
+                        await m.telegram_documento(d.telegram_chat_id, contenido, nombre, texto)
+                    except m.ErrorMensajeria as e:
+                        if not e.migrar_a:
+                            raise
+                        # El grupo pasó a supergrupo: se guarda el id nuevo y se reintenta.
+                        d.telegram_chat_id = e.migrar_a
+                        await m.telegram_documento(d.telegram_chat_id, contenido, nombre, texto)
                 elif canal == "WHATSAPP":
                     if not d.telefono:
                         raise m.ErrorMensajeria("no tiene número de WhatsApp")

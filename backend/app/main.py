@@ -1294,6 +1294,8 @@ async def _migrar_esquema(esquema: str) -> None:
             # Destinatarios de informes: correo y usuario de Telegram.
             ("eam_mensajeria_destinatario", "correo", "VARCHAR(160)"),
             ("eam_mensajeria_destinatario", "telegram_usuario", "VARCHAR(80)"),
+            ("eam_mensajeria_destinatario", "tipo", "VARCHAR(20) DEFAULT 'PERSONA'"),
+            ("eam_mensajeria_destinatario", "telegram_titulo", "VARCHAR(160)"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

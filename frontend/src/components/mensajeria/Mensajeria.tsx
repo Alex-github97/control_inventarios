@@ -5,7 +5,9 @@
  *  - DestinatariosInformes: en Configuración, el administrador (o un perfil con
  *    el permiso «Destinatarios de informes») registra a quién se envía.
  *    Telegram no deja que un bot escriba primero: cada persona abre una vez su
- *    enlace del bot y queda vinculada sola.
+ *    enlace del bot y queda vinculada sola. O se vincula un GRUPO de Telegram
+ *    del cliente: el enlace `startgroup` agrega el bot al grupo que se elija y
+ *    los informes le llegan a todos, sin que los integrantes hagan nada.
  *  - BotonesEnviar: en cada informe de llantas, un botón por canal.
  */
 import { useState } from 'react'
@@ -13,7 +15,7 @@ import {
   Alert, Box, Button, Card, CardContent, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControlLabel, IconButton, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography,
 } from '@mui/material'
-import { ContentCopy, DeleteForever, Email, Send, Telegram, WhatsApp } from '@mui/icons-material'
+import { ContentCopy, DeleteForever, Email, Groups, OpenInNew, Send, Telegram, WhatsApp } from '@mui/icons-material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
@@ -28,7 +30,8 @@ const CANAL: Record<Canal, { nombre: string; color: string; icono: JSX.Element }
 }
 
 interface Destinatario {
-  id: number; alias: string; telefono?: string | null; correo?: string | null; telegram_usuario?: string | null
+  id: number; alias: string; tipo?: 'PERSONA' | 'GRUPO_TELEGRAM'; telefono?: string | null; correo?: string | null
+  telegram_usuario?: string | null; telegram_titulo?: string | null
   activo: boolean; telegram_vinculado: boolean; enlace_telegram?: string | null
 }
 interface Estado { canales: Record<Canal, boolean>; bot_telegram?: string | null; gestiona: boolean }
@@ -36,8 +39,12 @@ interface Estado { canales: Record<Canal, boolean>; bot_telegram?: string | null
 export const useEstadoMensajeria = () => useQuery<Estado>({
   queryKey: ['mensajeria-estado'], queryFn: () => api.get(`${B}/estado`).then(r => r.data), staleTime: 60_000,
 })
+const esGrupo = (d: Destinatario) => d.tipo === 'GRUPO_TELEGRAM'
 const useDestinatarios = () => useQuery<Destinatario[]>({
   queryKey: ['mensajeria-dest'], queryFn: () => api.get(`${B}/destinatarios`).then(r => r.data),
+  // Mientras haya un grupo esperando que lo vinculen, se mira cada pocos segundos
+  // para mostrarlo «Vinculado» apenas el bot entre.
+  refetchInterval: q => (q.state.data ?? []).some(d => esGrupo(d) && !d.telegram_vinculado) ? 5000 : false,
 })
 const tieneCanal = (d: Destinatario, c: Canal) =>
   c === 'WHATSAPP' ? !!d.telefono : c === 'CORREO' ? !!d.correo : d.telegram_vinculado
@@ -56,6 +63,21 @@ export function DestinatariosInformes() {
     onError: (e: any) => toast.error(mensajeDeError(e)),
   })
   const borrar = useMutation({ mutationFn: (id: number) => api.delete(`${B}/destinatarios/${id}`), onSuccess: refrescar })
+  const [grupo, setGrupo] = useState('')
+  const vincularGrupo = useMutation({
+    // La pestaña se abre ANTES de la llamada: abrirla después la bloquea el navegador.
+    mutationFn: async () => {
+      const pestana = window.open('', '_blank')
+      try {
+        const d: Destinatario = (await api.post(`${B}/destinatarios`, { alias: grupo.trim() || 'Grupo de Telegram', tipo: 'GRUPO_TELEGRAM' })).data
+        if (pestana && d.enlace_telegram) pestana.location.href = d.enlace_telegram
+        else pestana?.close()
+        return d
+      } catch (e) { pestana?.close(); throw e }
+    },
+    onSuccess: () => { setGrupo(''); refrescar(); toast.success('En Telegram, elija el grupo al que se agrega el bot', { duration: 8000 }) },
+    onError: (e: any) => toast.error(mensajeDeError(e)),
+  })
   if (!estado?.gestiona) return null
   return (
     <Card sx={{ borderRadius: '16px', border: '1px solid #E5E7EB', mt: 3 }}>
@@ -78,18 +100,41 @@ export function DestinatariosInformes() {
           <TextField size="small" label="Correo" value={nuevo.correo} onChange={e => setNuevo({ ...nuevo, correo: e.target.value })} />
           <Button variant="contained" disabled={!nuevo.alias.trim() || crear.isPending} onClick={() => crear.mutate()} sx={{ textTransform: 'none' }}>Agregar</Button>
         </Stack>
+        {estado.canales.TELEGRAM && (
+          <Box sx={{ p: 1.5, mb: 1.5, borderRadius: '12px', bgcolor: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+            <Typography fontSize={13} fontWeight={700} display="flex" alignItems="center" gap={0.75}><Groups fontSize="small" sx={{ color: CANAL.TELEGRAM.color }} /> Grupo de Telegram</Typography>
+            <Typography fontSize={12.5} color="text.secondary" mb={1}>
+              Los informes llegan a todos los integrantes del grupo, sin que tengan que hacer nada. Se abre Telegram para
+              elegir el grupo (hay que poder agregar miembros en él).
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1}>
+              <TextField size="small" label="Nombre para reconocerlo" placeholder="Llantas — Flota norte" value={grupo} onChange={e => setGrupo(e.target.value)} />
+              <Button variant="outlined" startIcon={<Telegram />} disabled={vincularGrupo.isPending} onClick={() => vincularGrupo.mutate()}
+                sx={{ textTransform: 'none', borderColor: CANAL.TELEGRAM.color, color: CANAL.TELEGRAM.color }}>Vincular grupo de Telegram</Button>
+            </Stack>
+          </Box>
+        )}
         <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead><TableRow>{['Alias', 'WhatsApp', 'Telegram', 'Correo', ''].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}</TableRow></TableHead>
             <TableBody>
               {dests.map(d => (
                 <TableRow key={d.id}>
-                  <TableCell sx={{ fontWeight: 700 }}>{d.alias}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>
+                    <Stack direction="row" alignItems="center" gap={0.75}>
+                      {esGrupo(d) && <Groups fontSize="small" sx={{ color: CANAL.TELEGRAM.color }} />}{d.alias}
+                    </Stack>
+                  </TableCell>
                   <TableCell>{d.telefono ?? '—'}</TableCell>
                   <TableCell>
                     <Stack direction="row" alignItems="center" gap={1}>
-                      <Typography fontSize={13}>{d.telegram_usuario ?? ''}</Typography>
+                      <Typography fontSize={13}>{esGrupo(d) ? (d.telegram_titulo ? `Grupo «${d.telegram_titulo}»` : 'Grupo') : d.telegram_usuario ?? ''}</Typography>
                       {d.telegram_vinculado ? <Chip size="small" color="success" label="Vinculado" />
+                        : esGrupo(d) && d.enlace_telegram ? (
+                          <Tooltip title="Abre Telegram para elegir el grupo al que se agrega el bot">
+                            <Button size="small" startIcon={<OpenInNew fontSize="small" />} sx={{ textTransform: 'none' }}
+                              href={d.enlace_telegram} target="_blank" rel="noopener noreferrer">Elegir el grupo</Button>
+                          </Tooltip>)
                         : d.enlace_telegram ? (
                           <Tooltip title="Mándele este enlace: al abrirlo y pulsar «Iniciar» queda vinculado solo">
                             <Button size="small" startIcon={<ContentCopy fontSize="small" />} sx={{ textTransform: 'none' }}
@@ -164,7 +209,8 @@ function DialogoEnviar({ canal, informes, onCerrar }: { canal: Canal; informes: 
                 <FormControlLabel key={d.id} sx={{ display: 'flex' }}
                   control={<Checkbox checked={elegidos.includes(d.id)} onChange={e => setElegidos(e.target.checked ? [...elegidos, d.id] : elegidos.filter(x => x !== d.id))} />}
                   label={<Typography fontSize={14}>{d.alias} <Typography component="span" fontSize={12} color="text.secondary">
-                    {canal === 'WHATSAPP' ? d.telefono : canal === 'CORREO' ? d.correo : d.telegram_usuario ?? ''}</Typography></Typography>} />
+                    {canal === 'WHATSAPP' ? d.telefono : canal === 'CORREO' ? d.correo
+                      : esGrupo(d) ? `grupo${d.telegram_titulo ? ` «${d.telegram_titulo}»` : ''}` : d.telegram_usuario ?? ''}</Typography></Typography>} />
               ))}
             </Box>
             {sinCanal.length > 0 && <Typography fontSize={12} color="text.secondary">Sin este canal: {sinCanal.map(d => d.alias).join(', ')}</Typography>}

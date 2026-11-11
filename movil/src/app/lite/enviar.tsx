@@ -14,6 +14,7 @@ import { CabeceraLite } from '@/lite/marca'
 type Canal = 'WHATSAPP' | 'TELEGRAM' | 'CORREO'
 interface Destinatario {
   id: number; alias: string; telefono?: string | null; correo?: string | null; activo: boolean; telegram_vinculado: boolean
+  tipo?: 'PERSONA' | 'GRUPO_TELEGRAM'; telegram_titulo?: string | null
 }
 interface Estado { canales: Record<Canal, boolean> }
 
@@ -171,7 +172,8 @@ export default function EnviarReportes() {
           )}
           {disponibles.map(d => (
             <Casilla key={d.id} si={elegidos.includes(d.id)} titulo={d.alias}
-              detalle={canal === 'CORREO' ? d.correo ?? undefined : canal === 'WHATSAPP' ? d.telefono ?? undefined : 'Telegram vinculado'}
+              detalle={canal === 'CORREO' ? d.correo ?? undefined : canal === 'WHATSAPP' ? d.telefono ?? undefined
+                : d.tipo === 'GRUPO_TELEGRAM' ? `Grupo de Telegram${d.telegram_titulo ? ` «${d.telegram_titulo}»` : ''}` : 'Telegram vinculado'}
               onPress={() => setElegidos(elegidos.includes(d.id) ? elegidos.filter(x => x !== d.id) : [...elegidos, d.id])} />
           ))}
           <Campo etiqueta="Mensaje (opcional)" valor={mensaje} onCambio={setMensaje} multilinea />

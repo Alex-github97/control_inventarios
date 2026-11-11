@@ -21,6 +21,11 @@ class MensajeriaDestinatario(Base, TimestampMixin):
     # enlace del bot una vez y queda vinculado su chat.
     telegram_chat_id = Column(String(40))
     token_vinculo    = Column(String(40), unique=True, index=True)
+    # PERSONA (chat propio, WhatsApp, correo) o GRUPO_TELEGRAM: el administrador
+    # del cliente agrega el bot a su grupo con el enlace `startgroup` y los
+    # informes le llegan a todos los integrantes sin que hagan nada.
+    tipo             = Column(String(20), default="PERSONA")
+    telegram_titulo  = Column(String(160))    # nombre del grupo en Telegram
     activo           = Column(Boolean, default=True)
     # Columnas de la primera versión (canales por destinatario); ya no se usan.
     telegram         = Column(Boolean, default=True)

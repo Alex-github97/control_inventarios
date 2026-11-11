@@ -8744,6 +8744,11 @@ export interface components {
             telefono?: string | null;
             /** Telegram Usuario */
             telegram_usuario?: string | null;
+            /**
+             * Tipo
+             * @default PERSONA
+             */
+            tipo: string;
         };
         /** DiagnosticoIn */
         DiagnosticoIn: {
