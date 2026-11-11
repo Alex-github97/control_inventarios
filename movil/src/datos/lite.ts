@@ -12,7 +12,7 @@
  *    servidor no recibió.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Storage from 'expo-sqlite/kv-store'
+import { kv } from './kv'
 import { useSesion } from './sesion'
 
 export interface PosicionLite {
@@ -51,9 +51,9 @@ export function nuevoUuid(): string {
 }
 
 async function leerJson<T>(k: string, porDefecto: T): Promise<T> {
-  try { const v = await Storage.getItemAsync(k); return v ? JSON.parse(v) as T : porDefecto } catch { return porDefecto }
+  try { const v = await kv.leer(k); return v ? JSON.parse(v) as T : porDefecto } catch { return porDefecto }
 }
-const escribir = (k: string, v: unknown) => Storage.setItemAsync(k, JSON.stringify(v))
+const escribir = (k: string, v: unknown) => kv.escribir(k, JSON.stringify(v))
 
 /** Catálogos y vehículos: de la red si hay señal, del teléfono si no. */
 export function useDatosLite() {

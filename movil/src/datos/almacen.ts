@@ -10,7 +10,16 @@ export async function leer(clave: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     try { return localStorage.getItem(clave) } catch { return null }
   }
-  return SecureStore.getItemAsync(clave)
+  try {
+    return await SecureStore.getItemAsync(clave)
+  } catch {
+    // Android no puede descifrar el dato: pasa al reinstalar la app, cuando el
+    // sistema restaura el valor pero la llave del Keystore ya no existe. Se
+    // borra y se sigue como si no hubiera nada: la persona vuelve a ingresar.
+    // Antes este error dejaba la app cargando para siempre, con la pantalla vacía.
+    try { await SecureStore.deleteItemAsync(clave) } catch { /* nada que borrar */ }
+    return null
+  }
 }
 
 export async function guardar(clave: string, valor: string | null): Promise<void> {

@@ -1,1 +1,1 @@
-Primera versión: ingreso con su usuario del portal y sus órdenes de trabajo del CMMS (ver, iniciar, esperar repuestos y completar).
+Corrige la pantalla vacía al abrir la app en algunos teléfonos (sesión guardada que Android no podía leer) y estrena el ícono de TittanWare.

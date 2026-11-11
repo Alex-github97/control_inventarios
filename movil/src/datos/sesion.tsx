@@ -101,13 +101,24 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   // señal se entra con lo guardado y las pantallas avisan que no hay conexión.
   useEffect(() => {
     (async () => {
-      const codigo = await leer(K_EMPRESA)
-      const guardado = await leer(K_USUARIO)
-      credenciales.empresa = codigo
-      if (!guardado) { setEstado(e => ({ ...e, cargando: false, empresaRecordada: codigo })); return }
-      const previo = JSON.parse(guardado) as { user: Usuario; empresa: string }
-      setEstado({ cargando: false, usuario: previo.user, nombreEmpresa: previo.empresa, empresaRecordada: codigo })
-      await renovar()
+      // Pase lo que pase, el arranque termina: si algo de lo guardado no se
+      // puede leer, se va al ingreso en vez de quedarse con la pantalla vacía.
+      let codigo: string | null = null
+      try {
+        codigo = await leer(K_EMPRESA)
+        const guardado = await leer(K_USUARIO)
+        credenciales.empresa = codigo
+        if (!guardado) { setEstado(e => ({ ...e, cargando: false, empresaRecordada: codigo })); return }
+        const previo = JSON.parse(guardado) as { user: Usuario; empresa: string }
+        if (!previo?.user) throw new Error('Sesión guardada incompleta')
+        setEstado({ cargando: false, usuario: previo.user, nombreEmpresa: previo.empresa, empresaRecordada: codigo })
+      } catch {
+        await guardar(K_USUARIO, null).catch(() => {})
+        await guardar(K_RENOVACION, null).catch(() => {})
+        setEstado({ cargando: false, usuario: null, nombreEmpresa: null, empresaRecordada: codigo })
+        return
+      }
+      await renovar().catch(() => false)
     })()
   }, [renovar])
 
