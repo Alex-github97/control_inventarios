@@ -3,17 +3,17 @@
  * disposición final y ver qué se envió (y qué espera señal).
  */
 import { useMemo, useState } from 'react'
-import { View } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
 import { router } from 'expo-router'
-import { CircleSlash, LogOut, RefreshCw, Search, Send, Truck } from 'lucide-react-native'
+import { CircleSlash, LogOut, RefreshCw, Search, Send, Settings, Truck } from 'lucide-react-native'
 import {
-  Avatar, AvisoSincronizacion, Boton, BotonIcono, Campo, Chip, ESPACIO, Esqueleto, EstadoVacio, Fila, HojaInferior,
-  Pantalla, Seccion, Tarjeta, Texto, type TonoChip,
+  Avatar, AvisoSincronizacion, Boton, Campo, Chip, ESPACIO, Esqueleto, EstadoVacio, Fila, HojaInferior,
+  Seccion, Tarjeta, Texto, useTema, type TonoChip,
 } from '@/diseno'
 import { useSesion } from '@/datos/sesion'
 import { useCola, useDatosLite } from '@/datos/lite'
 import { VERSION_APP } from '@/datos/config'
-import { EnviarInforme } from '@/lite/enviar'
+import { CabeceraLite } from '@/lite/marca'
 
 const TONO_SYNC: Record<string, TonoChip> = {
   SINCRONIZADA: 'exito', PARCIAL: 'alerta', RECHAZADA: 'peligro', SIN_SEGUIMIENTO: 'neutro', PENDIENTE: 'acento',
@@ -28,7 +28,7 @@ export default function InicioLite() {
   const { cola, hechos, ultima, sincronizar } = useCola()
   const [buscar, setBuscar] = useState('')
   const [perfil, setPerfil] = useState(false)
-  const [enviar, setEnviar] = useState(false)
+  const { color } = useTema()
 
   const lista = useMemo(() => {
     const t = buscar.trim().toLowerCase()
@@ -38,27 +38,33 @@ export default function InicioLite() {
   const nombre = usuario ? `${usuario.nombre} ${usuario.apellido}`.trim() : ''
   const conError = cola.filter(c => c.error).length
 
+  const accionCabecera = (Icono: typeof Truck, etiqueta: string, onPress: () => void) => (
+    <Pressable accessibilityRole="button" accessibilityLabel={etiqueta} onPress={onPress} hitSlop={8}
+      style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: color.velo }}>
+      <Icono size={20} color={color.textoSobreAcento} />
+    </Pressable>
+  )
+
   return (
-    <Pantalla subtitulo={nombreEmpresa ?? undefined} titulo="TittanLite"
-      accion={<View style={{ flexDirection: 'row', gap: ESPACIO.e2 }}>
-        <BotonIcono icono={RefreshCw} etiqueta="Actualizar" onPress={() => { actualizar(); sincronizar() }} />
-        <Avatar nombre={nombre || 'Usuario'} tamano={48} onPress={() => setPerfil(true)} />
-      </View>}>
+    <View style={{ flex: 1, backgroundColor: color.fondo }}>
+      <CabeceraLite titulo="TittanLite" subtitulo={nombreEmpresa ?? undefined}
+        accion={<View style={{ flexDirection: 'row', gap: ESPACIO.e2, alignItems: 'center' }}>
+          {accionCabecera(RefreshCw, 'Actualizar', () => { actualizar(); sincronizar() })}
+          {accionCabecera(Settings, 'Ajustes de inspección', () => router.push('/lite/ajustes'))}
+          <Avatar nombre={nombre || 'Usuario'} tamano={40} onPress={() => setPerfil(true)} />
+        </View>} />
+      <ScrollView contentContainerStyle={{ padding: ESPACIO.e4, gap: ESPACIO.e4, paddingBottom: ESPACIO.e8 }} keyboardShouldPersistTaps="handled">
       <AvisoSincronizacion enLinea={enLinea} pendientes={cola.length} rechazados={conError}
         ultima={ultima ?? undefined} onSincronizar={sincronizar} />
 
-      <Tarjeta style={{ gap: ESPACIO.e3 }}>
-        <Texto variante="subtitulo">Disposición final</Texto>
-        <Texto tono="secundario">Registre una llanta que se desecha: daño, profundidades y fotos.</Texto>
-        <Boton titulo="Registrar disposición" icono={CircleSlash} variante="secundario" ancho
-          onPress={() => router.push('/lite/disposicion')} />
-      </Tarjeta>
-
-      <Tarjeta style={{ gap: ESPACIO.e3 }}>
-        <Texto variante="subtitulo">Informes</Texto>
-        <Texto tono="secundario">Mande al cliente el informe de lo inspeccionado o el plan de recambio, por WhatsApp o Telegram.</Texto>
-        <Boton titulo="Enviar informe" icono={Send} variante="secundario" ancho onPress={() => setEnviar(true)} />
-      </Tarjeta>
+      <View style={{ flexDirection: 'row', gap: ESPACIO.e3 }}>
+        <View style={{ flex: 1 }}>
+          <Boton titulo="Enviar reportes" icono={Send} ancho onPress={() => router.push('/lite/enviar')} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Boton titulo="Disposición" icono={CircleSlash} variante="secundario" ancho onPress={() => router.push('/lite/disposicion')} />
+        </View>
+      </View>
 
       <Seccion titulo="Inspeccionar un vehículo">
         <Campo etiqueta="Buscar placa o código" valor={buscar} onCambio={setBuscar} icono={Search} sinMayusculas />
@@ -71,9 +77,11 @@ export default function InicioLite() {
             <Tarjeta relleno={0}>
               {lista.map((v, i) => {
                 const montadas = v.posiciones.filter(p => p.llanta).length
+                const ult = v.ultima_inspeccion?.fecha
                 return (
                   <Fila key={v.activo_id} icono={Truck} titulo={v.placa || v.codigo}
-                    detalle={[v.tipo, v.marca, `${montadas}/${v.posiciones.length} llantas`].filter(Boolean).join(' · ')}
+                    detalle={[v.tipo, v.marca, `${montadas}/${v.posiciones.length} llantas`,
+                      ult ? `última ${new Date(ult).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}` : 'sin inspección'].filter(Boolean).join(' · ')}
                     onPress={() => router.push(`/lite/inspeccion/${v.activo_id}`)} ultima={i === lista.length - 1} />
                 )
               })}
@@ -103,13 +111,13 @@ export default function InicioLite() {
         </Seccion>
       )}
 
-      <EnviarInforme visible={enviar} onCerrar={() => setEnviar(false)} />
+      </ScrollView>
       <HojaInferior visible={perfil} onCerrar={() => setPerfil(false)} titulo={nombre}>
         <Texto tono="secundario">{nombreEmpresa} · TittanLite {VERSION_APP}</Texto>
         <View style={{ marginTop: ESPACIO.e4 }}>
           <Boton titulo="Cerrar sesión" icono={LogOut} variante="peligro" ancho onPress={() => { setPerfil(false); salir() }} />
         </View>
       </HojaInferior>
-    </Pantalla>
+    </View>
   )
 }

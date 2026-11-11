@@ -42,10 +42,10 @@ export function HojaInferior({ visible, onCerrar, titulo, children }: { visible:
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCerrar} statusBarTranslucent>
       {visible && (
         <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(160)} style={[StyleSheet.absoluteFill, { backgroundColor: color.velo }]}>
+          <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(100)} style={[StyleSheet.absoluteFill, { backgroundColor: color.velo }]}>
             <Pressable accessibilityLabel="Cerrar" style={{ flex: 1 }} onPress={onCerrar} />
           </Animated.View>
-          <Animated.View entering={SlideInDown.springify().damping(20)} exiting={SlideOutDown.duration(200)}
+          <Animated.View entering={SlideInDown.duration(160)} exiting={SlideOutDown.duration(120)}
             style={[estilos.hoja, { backgroundColor: color.elevada, paddingBottom: borde.bottom + ESPACIO.e4 }]}>
             <View style={[estilos.asa, { backgroundColor: color.bordeFuerte }]} />
             {titulo && <Texto variante="subtitulo" style={{ marginBottom: ESPACIO.e3 }}>{titulo}</Texto>}

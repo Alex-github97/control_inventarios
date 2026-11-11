@@ -1,1 +1,1 @@
-Corrige la pantalla vacía al abrir la app en algunos teléfonos (sesión guardada que Android no podía leer) y estrena el ícono de TittanWare.
+Ajustes de estabilidad y de la identidad de TittanWare.

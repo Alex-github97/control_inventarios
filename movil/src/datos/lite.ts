@@ -23,6 +23,11 @@ export interface PosicionLite {
 export interface VehiculoLite {
   activo_id: number; codigo: string; placa?: string | null; nombre?: string | null; tipo?: string | null
   marca?: string | null; linea?: string | null; odometro_actual?: number | null; posiciones: PosicionLite[]
+  /** La última inspección TittanLite del vehículo, con sus llantas tal como se tomaron. */
+  ultima_inspeccion?: {
+    fecha: string; odometro?: number | null; inspector?: string | null
+    llantas: Record<string, Partial<LlantaLite> & { novedades: string[] }>
+  } | null
 }
 export interface CatalogosLite {
   marcas: string[]; referencias: { marca: string; referencia: string }[]; medidas: string[]

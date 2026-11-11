@@ -133,7 +133,11 @@ def _color_llanta(ll: LlantaInsp, nov: Dict[int, List[Novedad]]):
 
 
 def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict[int, List[Sugerencia]],
-            r: Resumen, u: Umbrales, enc: Encabezado, titulo: str = "Estado de llantas de la flota") -> bytes:
+            r: Resumen, u: Umbrales, enc: Encabezado, titulo: str = "Estado de llantas de la flota",
+            fotos: Optional[dict] = None) -> bytes:
+    """`fotos` (TittanLite): {"vehiculos": {activo_id: [(ruta, rótulo)]},
+    "disposiciones": [{"titulo", "detalle", "fotos": [(ruta, rótulo)]}]}."""
+    fotos = fotos or {}
     from fpdf import FPDF
 
     class Informe(FPDF):
@@ -299,6 +303,25 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
         else:
             barras(x2 + col + 8, y, col, "Tipos de vehículo", r.por_tipo_vehiculo, maximo=8)
 
+    def galeria(titulo, subtitulo, lista):
+        """Fotos en cuadrícula de 4 × 2 por página, con su rótulo."""
+        for inicio in range(0, len(lista), 8):
+            pdf.add_page()
+            banda(titulo, subtitulo)
+            ancho_c, alto_c = (W - 2 * M - 3 * 6) / 4, 74
+            for i, (ruta, rotulo) in enumerate(lista[inicio:inicio + 8]):
+                x = M + (i % 4) * (ancho_c + 6)
+                y = 30 + (i // 4) * (alto_c + 14)
+                try:
+                    from PIL import Image as _Img
+                    with _Img.open(ruta) as im:
+                        rel = im.width / im.height
+                    w_, h_ = (ancho_c, ancho_c / rel) if rel >= ancho_c / alto_c else (alto_c * rel, alto_c)
+                    pdf.image(ruta, x=x + (ancho_c - w_) / 2, y=y + (alto_c - h_) / 2, w=w_, h=h_)
+                except Exception:   # noqa: BLE001 — una foto dañada no impide el informe
+                    texto(x, y + alto_c / 2, "Foto no disponible", 7, "", GRIS)
+                texto(x, y + alto_c + 2, str(rotulo)[:60], 7, "", NEGRO, ancho_c)
+
     # ── Una página por vehículo ──
     for v in flota:
         pdf.add_page()
@@ -308,6 +331,27 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
         _esquema(pdf, v, nov, M, 28, 112, texto)
         yt = _tabla(pdf, v, nov, M + 118, 28, W - M - (M + 118), texto, u.profundidad_minima)
         _sugerencias(pdf, v, sug, M + 118, yt + 4, W - M - (M + 118), H - 14, texto)
+        propias = (fotos.get("vehiculos") or {}).get(v.activo_id) or []
+        if propias:
+            galeria(f"{v.placa or v.codigo} · fotos de la inspección", f"{len(propias)} foto(s) tomadas en campo", propias)
+
+    # ── Disposiciones registradas en campo ──
+    disps = fotos.get("disposiciones") or []
+    if disps:
+        pdf.add_page()
+        banda("Disposición final registrada en campo", f"{enc.empresa} · {enc.periodo} · {len(disps)} llanta(s)")
+        y = 30
+        for d in disps:
+            if y > H - 24:
+                pdf.add_page()
+                banda("Disposición final registrada en campo", f"{enc.empresa} · {enc.periodo}")
+                y = 30
+            texto(M, y, d["titulo"], 9, "B")
+            texto(M, y + 5, d["detalle"][:170], 7.5, "", GRIS)
+            y += 12
+        for d in disps:
+            if d["fotos"]:
+                galeria(d["titulo"], d["detalle"][:120], d["fotos"])
 
     return bytes(pdf.output())
 

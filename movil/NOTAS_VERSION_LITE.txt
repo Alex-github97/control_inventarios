@@ -1,1 +1,1 @@
-Primera versión: inspecciones y disposición final de llantas en campo, sin señal, y envío de informes por WhatsApp o Telegram.
+Inspección pensada para el inspector: «Iniciar inspección» con fecha y odómetro, la última inspección de cada vehículo con sus profundidades, captura rápida sin ventanas emergentes (surcos externo, central e interno), medidor Bluetooth, orden de recorrido a su gusto, memoria de novedades y daños, fotos con cámara o galería que salen en el informe, y botón «Enviar reportes» con período.

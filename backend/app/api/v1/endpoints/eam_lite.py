@@ -100,6 +100,27 @@ async def vehiculos(buscar: Optional[str] = None, limite: int = Query(50, ge=1, 
         for n in (await db.execute(select(EAMNeumatico).where(
                 EAMNeumatico.estado == "INSTALADO", EAMNeumatico.activo_id.in_([a.id for a in activos])))).scalars():
             montadas[(n.activo_id, n.posicion)] = n
+    # La última inspección Lite de cada vehículo, con sus llantas tal como se
+    # tomaron: la app la muestra y propone esos datos en la siguiente.
+    ultimas: Dict[int, Dict[str, Any]] = {}
+    if activos:
+        ids = [a.id for a in activos]
+        sub = (select(LiteInspeccion.activo_id, func.max(LiteInspeccion.id).label("iid"))
+               .where(LiteInspeccion.activo_id.in_(ids)).group_by(LiteInspeccion.activo_id).subquery())
+        insps = {i.id: i for i in (await db.execute(
+            select(LiteInspeccion).join(sub, sub.c.iid == LiteInspeccion.id))).scalars()}
+        if insps:
+            lineas: Dict[int, Dict[str, Any]] = {}
+            for ln in (await db.execute(select(LiteInspeccionLlanta).where(
+                    LiteInspeccionLlanta.inspeccion_id.in_(list(insps))))).scalars():
+                lineas.setdefault(ln.inspeccion_id, {})[ln.posicion or ""] = {
+                    "codigo": ln.codigo, "marca": ln.marca, "referencia": ln.referencia, "medida": ln.medida,
+                    "reencauches": ln.reencauches, "profundidad_externa": ln.profundidad_externa,
+                    "profundidad_central": ln.profundidad_central, "profundidad_interna": ln.profundidad_interna,
+                    "presion": ln.presion, "novedades": ln.novedades or [], "observacion": ln.observacion}
+            for i in insps.values():
+                ultimas[i.activo_id] = {"fecha": i.fecha, "odometro": i.odometro, "inspector": i.inspector,
+                                        "llantas": lineas.get(i.id, {})}
     salida = []
     for a in activos:
         layout = _generar_posiciones(a.numero_ejes, a.tiene_repuesto if a.tiene_repuesto is not None else True,
@@ -118,7 +139,7 @@ async def vehiculos(buscar: Optional[str] = None, limite: int = Query(50, ge=1, 
         salida.append({"activo_id": a.id, "codigo": a.codigo, "placa": a.placa, "nombre": a.nombre,
                        "tipo": a.tipo_activo, "marca": a.marca, "linea": a.linea,
                        "odometro_actual": a.odometro_actual, "horometro_actual": a.horometro_actual,
-                       "posiciones": posiciones})
+                       "posiciones": posiciones, "ultima_inspeccion": ultimas.get(a.id)})
     return salida
 
 
@@ -701,10 +722,52 @@ async def informe_pdf_bytes(db: AsyncSession, desde, hasta, activo_ids, quien: s
     if not flota:
         raise HTTPException(404, "No hay inspecciones de TittanLite en el periodo")
     empresa, logo = await _empresa(db)
+    fotos = await _fotos_informe(db, lineas, desde, hasta)
     enc = Encabezado(empresa=empresa, periodo=periodo_texto({"desde": desde.isoformat() if desde else None,
                                                                 "hasta": hasta.isoformat() if hasta else None}),
                      generado_por=quien, generado_en=datetime.now(), logo=logo)
-    return await asyncio.to_thread(generar, flota, nov, sug, r, u, enc, "Informe TittanLite de llantas")
+    return await asyncio.to_thread(generar, flota, nov, sug, r, u, enc, "Informe TittanLite de llantas", fotos)
+
+
+async def _fotos_informe(db: AsyncSession, lineas, desde, hasta) -> Dict[str, Any]:
+    """Las fotos para el PDF: por vehículo (de sus llantas inspeccionadas) y las
+    de las disposiciones del periodo. Rutas locales con su rótulo."""
+    raiz = Path(settings.UPLOAD_DIR)
+    insp = {i.id: i for i in (await db.execute(select(LiteInspeccion).where(
+        LiteInspeccion.id.in_({ln.inspeccion_id for ln in lineas} or {0})))).scalars()}
+    por_linea = {ln.id: ln for ln in lineas}
+    salida: Dict[str, Any] = {"vehiculos": {}, "disposiciones": []}
+    if por_linea:
+        for f in (await db.execute(select(LiteFoto).where(LiteFoto.inspeccion_llanta_id.in_(list(por_linea)))
+                                   .order_by(LiteFoto.id))).scalars():
+            ln = por_linea[f.inspeccion_llanta_id]
+            ruta = raiz / f.archivo
+            if ruta.is_file():
+                salida["vehiculos"].setdefault(insp[ln.inspeccion_id].activo_id, []).append(
+                    (str(ruta), f"{ln.posicion or ''} · {ln.codigo or 's/c'} · {f.tipo.title()}"))
+    q = select(LiteDisposicion)
+    d0, h0 = _periodo(desde, hasta)
+    if d0:
+        q = q.where(LiteDisposicion.fecha >= d0)
+    if h0:
+        q = q.where(LiteDisposicion.fecha <= h0)
+    disps = (await db.execute(q.order_by(LiteDisposicion.fecha))).scalars().all()
+    if disps:
+        danos = {d.id: f"{d.codigo} · {d.nombre}" for d in (await db.execute(select(EAMDanoNeumaticoCatalogo))).scalars()}
+        fotos_d: Dict[int, List[tuple]] = {}
+        for f in (await db.execute(select(LiteFoto).where(LiteFoto.disposicion_id.in_([d.id for d in disps]))
+                                   .order_by(LiteFoto.id))).scalars():
+            if (raiz / f.archivo).is_file():
+                fotos_d.setdefault(f.disposicion_id, []).append((str(raiz / f.archivo), f.tipo.title()))
+        for d in disps:
+            prof = [x for x in (d.profundidad_externa, d.profundidad_central, d.profundidad_interna) if x is not None]
+            salida["disposiciones"].append({
+                "titulo": f"Llanta {d.codigo} · {d.marca or ''} {d.referencia or ''} {d.medida or ''}".strip(),
+                "detalle": " · ".join(x for x in [f"{d.fecha:%d/%m/%Y}", danos.get(d.dano_id),
+                                                  f"Prof. mín. {min(prof):g} mm" if prof else None,
+                                                  d.observaciones] if x),
+                "fotos": fotos_d.get(d.id, [])})
+    return salida
 
 
 @router.get("/informe/pdf")

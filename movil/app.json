@@ -3,13 +3,13 @@
     "name": "TittanWare",
     "slug": "tittanware-cmms",
     "scheme": "tittanware",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "tech.tittanware.cmms",
-      "versionCode": 2,
+      "versionCode": 3,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
@@ -61,7 +61,14 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-local-authentication"
+      "expo-local-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La galería se usa para adjuntar fotos de las llantas a las inspecciones y las bajas.",
+          "cameraPermission": "La cámara se usa para tomar fotos de las llantas."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
