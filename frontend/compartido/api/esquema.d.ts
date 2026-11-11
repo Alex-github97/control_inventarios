@@ -4152,6 +4152,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/eam/mensajeria/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ver Config */
+        get: operations["ver_config_api_v1_eam_mensajeria_config_get"];
+        /** Guardar Config */
+        put: operations["guardar_config_api_v1_eam_mensajeria_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/mensajeria/destinatarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Destinatarios */
+        get: operations["destinatarios_api_v1_eam_mensajeria_destinatarios_get"];
+        put?: never;
+        /** Crear Destinatario */
+        post: operations["crear_destinatario_api_v1_eam_mensajeria_destinatarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/mensajeria/destinatarios/{did}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Editar Destinatario */
+        put: operations["editar_destinatario_api_v1_eam_mensajeria_destinatarios__did__put"];
+        post?: never;
+        /** Borrar Destinatario */
+        delete: operations["borrar_destinatario_api_v1_eam_mensajeria_destinatarios__did__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/mensajeria/enviar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enviar */
+        post: operations["enviar_api_v1_eam_mensajeria_enviar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/mensajeria/envios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Envios */
+        get: operations["envios_api_v1_eam_mensajeria_envios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/mensajeria/informes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Informes */
+        get: operations["informes_api_v1_eam_mensajeria_informes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/eam/mensajeria/telegram/revisar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revisar Telegram
+         * @description Lee los mensajes pendientes del bot y vincula a quien abrió su enlace.
+         */
+        post: operations["revisar_telegram_api_v1_eam_mensajeria_telegram_revisar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/eam/neumaticos": {
         parameters: {
             query?: never;
@@ -8619,6 +8744,28 @@ export interface components {
             /** Sugerencias */
             sugerencias: components["schemas"]["SugerenciaOut"][];
         };
+        /** DestinatarioIn */
+        DestinatarioIn: {
+            /**
+             * Activo
+             * @default true
+             */
+            activo: boolean;
+            /** Alias */
+            alias: string;
+            /** Telefono */
+            telefono?: string | null;
+            /**
+             * Telegram
+             * @default true
+             */
+            telegram: boolean;
+            /**
+             * Whatsapp
+             * @default true
+             */
+            whatsapp: boolean;
+        };
         /** DiagnosticoIn */
         DiagnosticoIn: {
             /** Analista */
@@ -8987,6 +9134,23 @@ export interface components {
              * Format: date-time
              */
             vence: string;
+        };
+        /** EnviarIn */
+        EnviarIn: {
+            /**
+             * Canales
+             * @default [
+             *       "TELEGRAM",
+             *       "WHATSAPP"
+             *     ]
+             */
+            canales: string[];
+            /** Destinatario Ids */
+            destinatario_ids: number[];
+            /** Informe */
+            informe: Record<string, never>;
+            /** Mensaje */
+            mensaje?: string | null;
         };
         /** EsquemaAsignacionCreate */
         EsquemaAsignacionCreate: {
@@ -13538,6 +13702,19 @@ export interface components {
             sistema?: string | null;
             /** Subsistema */
             subsistema?: string | null;
+        };
+        /** ConfigIn */
+        app__api__v1__endpoints__eam_mensajeria__ConfigIn: {
+            /** Telegram Token */
+            telegram_token?: string | null;
+            /** Whatsapp Idioma */
+            whatsapp_idioma?: string | null;
+            /** Whatsapp Numero Id */
+            whatsapp_numero_id?: string | null;
+            /** Whatsapp Plantilla */
+            whatsapp_plantilla?: string | null;
+            /** Whatsapp Token */
+            whatsapp_token?: string | null;
         };
         /** MotivoIn */
         app__api__v1__endpoints__inventario__MotivoIn: {
@@ -23584,6 +23761,269 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_config_api_v1_eam_mensajeria_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    guardar_config_api_v1_eam_mensajeria_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__api__v1__endpoints__eam_mensajeria__ConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    destinatarios_api_v1_eam_mensajeria_destinatarios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    crear_destinatario_api_v1_eam_mensajeria_destinatarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestinatarioIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_destinatario_api_v1_eam_mensajeria_destinatarios__did__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                did: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DestinatarioIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_destinatario_api_v1_eam_mensajeria_destinatarios__did__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                did: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enviar_api_v1_eam_mensajeria_enviar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnviarIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    envios_api_v1_eam_mensajeria_envios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    informes_api_v1_eam_mensajeria_informes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    revisar_telegram_api_v1_eam_mensajeria_telegram_revisar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

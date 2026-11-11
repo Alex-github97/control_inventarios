@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { View } from 'react-native'
 import { router } from 'expo-router'
-import { CircleSlash, LogOut, RefreshCw, Search, Truck } from 'lucide-react-native'
+import { CircleSlash, LogOut, RefreshCw, Search, Send, Truck } from 'lucide-react-native'
 import {
   Avatar, AvisoSincronizacion, Boton, BotonIcono, Campo, Chip, ESPACIO, Esqueleto, EstadoVacio, Fila, HojaInferior,
   Pantalla, Seccion, Tarjeta, Texto, type TonoChip,
@@ -13,6 +13,7 @@ import {
 import { useSesion } from '@/datos/sesion'
 import { useCola, useDatosLite } from '@/datos/lite'
 import { VERSION_APP } from '@/datos/config'
+import { EnviarInforme } from '@/lite/enviar'
 
 const TONO_SYNC: Record<string, TonoChip> = {
   SINCRONIZADA: 'exito', PARCIAL: 'alerta', RECHAZADA: 'peligro', SIN_SEGUIMIENTO: 'neutro', PENDIENTE: 'acento',
@@ -27,6 +28,7 @@ export default function InicioLite() {
   const { cola, hechos, ultima, sincronizar } = useCola()
   const [buscar, setBuscar] = useState('')
   const [perfil, setPerfil] = useState(false)
+  const [enviar, setEnviar] = useState(false)
 
   const lista = useMemo(() => {
     const t = buscar.trim().toLowerCase()
@@ -50,6 +52,12 @@ export default function InicioLite() {
         <Texto tono="secundario">Registre una llanta que se desecha: daño, profundidades y fotos.</Texto>
         <Boton titulo="Registrar disposición" icono={CircleSlash} variante="secundario" ancho
           onPress={() => router.push('/lite/disposicion')} />
+      </Tarjeta>
+
+      <Tarjeta style={{ gap: ESPACIO.e3 }}>
+        <Texto variante="subtitulo">Informes</Texto>
+        <Texto tono="secundario">Mande al cliente el informe de lo inspeccionado o el plan de recambio, por WhatsApp o Telegram.</Texto>
+        <Boton titulo="Enviar informe" icono={Send} variante="secundario" ancho onPress={() => setEnviar(true)} />
       </Tarjeta>
 
       <Seccion titulo="Inspeccionar un vehículo">
@@ -95,6 +103,7 @@ export default function InicioLite() {
         </Seccion>
       )}
 
+      <EnviarInforme visible={enviar} onCerrar={() => setEnviar(false)} />
       <HojaInferior visible={perfil} onCerrar={() => setPerfil(false)} titulo={nombre}>
         <Texto tono="secundario">{nombreEmpresa} · TittanLite {VERSION_APP}</Texto>
         <View style={{ marginTop: ESPACIO.e4 }}>
