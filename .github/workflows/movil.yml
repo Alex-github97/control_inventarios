@@ -65,7 +65,21 @@ jobs:
         env:
           APP_VARIANT: ${{ steps.version.outputs.app == 'lite' && 'lite' || '' }}
         run: |
-          docker build -t tw-android movil/compilar
+          # Base del compilador: espejo de Google y, si falla, Docker Hub; con
+          # reintentos, porque una descarga cortada no debe tumbar la publicación.
+          BASE=""
+          for intento in 1 2 3; do
+            for origen in mirror.gcr.io/library/eclipse-temurin:17-jdk-jammy eclipse-temurin:17-jdk-jammy; do
+              if docker pull -q "$origen"; then BASE="$origen"; break 2; fi
+            done
+            echo "No se pudo bajar la imagen base (intento $intento); reintentando…"; sleep 20
+          done
+          [ -n "$BASE" ] || { echo "::error::No se pudo descargar la imagen base del compilador"; exit 1; }
+          for intento in 1 2 3; do
+            docker build --build-arg BASE="$BASE" -t tw-android movil/compilar && break
+            [ "$intento" = 3 ] && exit 1
+            echo "Falló la construcción del compilador (intento $intento); reintentando…"; sleep 20
+          done
           docker volume create ci_movil_nm >/dev/null
           bash movil/compilar/apk.sh
 

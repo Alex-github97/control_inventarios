@@ -4,7 +4,11 @@
 # Gradle descarga por su cuenta lo que le falte del SDK (plataforma, NDK,
 # CMake) porque las licencias quedan aceptadas aquí; los volúmenes de caché
 # evitan bajarlo de nuevo en cada compilación.
-FROM eclipse-temurin:17-jdk-jammy
+# La imagen base se baja del espejo de Google por defecto: Docker Hub corta
+# descargas a ratos («short read: unexpected EOF») y la compilación moría a los
+# 20 segundos. Es la misma imagen oficial.
+ARG BASE=mirror.gcr.io/library/eclipse-temurin:17-jdk-jammy
+FROM ${BASE}
 
 ENV ANDROID_HOME=/opt/android \
     ANDROID_SDK_ROOT=/opt/android \
