@@ -502,7 +502,7 @@ export default function EAMPlanesMant() {
                 Planes de Mantenimiento
               </Typography>
               <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                CMMS · Rutinas por jerarquía de activo
+                Gestión de Activos · Rutinas por jerarquía de activo
               </Typography>
             </Box>
           </Box>

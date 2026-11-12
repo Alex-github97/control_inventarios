@@ -522,7 +522,7 @@ export function CatalogoVehiculos({ color = '#1A1A1A' }: { color?: string }) {
           dos listas de áreas y de centros de costo para lo mismo. */}
       <Box mt={3}>
         <Typography variant="subtitle2" fontWeight={800} mb={0.5}>
-          Otros catálogos del CMMS
+          Otros catálogos de Gestión de Activos
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
           Tipos y especialidades de contratista, la clasificación del análisis de causa raíz

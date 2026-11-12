@@ -1,5 +1,5 @@
 """
-Umbrales de aviso del CMMS, en un solo lugar.
+Umbrales de aviso de Gestión de Activos, en un solo lugar.
 
 Antes cada pantalla tenía su número escrito en el código —garantías avisaba
 a 90 días y el tablero a 30, calibración a 30, preventivos a 15— y la pantalla
@@ -14,13 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 PARAMETROS_EAM: Dict[str, dict] = {
     "garantia_dias_aviso": {"defecto": 90, "min": 1, "max": 365,
                             "descripcion": "Días antes del vencimiento para avisar que una garantía vence",
-                            "lo_usan": "Garantías (por vencer) y el tablero del CMMS"},
+                            "lo_usan": "Garantías (por vencer) y el tablero de Gestión de Activos"},
     "calibracion_dias_aviso": {"defecto": 30, "min": 1, "max": 365,
                                "descripcion": "Días antes del vencimiento para marcar una calibración «por vencer»",
                                "lo_usan": "Confiabilidad → Calibraciones"},
     "pm_dias_aviso": {"defecto": 15, "min": 1, "max": 120,
                       "descripcion": "Días antes de la fecha para marcar un preventivo como «próximo»",
-                      "lo_usan": "Reportes del CMMS (cumplimiento de planes)"},
+                      "lo_usan": "Reportes de Gestión de Activos (cumplimiento de planes)"},
 }
 
 

@@ -119,7 +119,7 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
     # No están «Gestión de Flotas» —se unificó dentro del CMMS— ni
     # «Mantenimiento Locativo», que no tiene ninguna ruta en el servidor.
     "modulos": [
-        "CMMS / EAM · Mantenimiento | /modulos/cmms.html",
+        "GA · Gestión de Activos | /modulos/cmms.html",
         "WMS · Almacenes | /modulos/wms.html",
         "TMS · Transporte | /modulos/tms.html",
         "Control de Estibas | /modulos/estibas.html",

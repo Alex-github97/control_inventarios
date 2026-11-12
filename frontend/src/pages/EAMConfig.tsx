@@ -453,13 +453,13 @@ function IntegracionesSection() {
           <Typography fontWeight={700}>TMS · Transporte</Typography>
           <Chip size="small" label={tieneTMS ? 'contratado' : 'no contratado'} sx={{ bgcolor: tieneTMS ? alpha('#16A34A', 0.12) : '#F1F5F9', color: tieneTMS ? '#16A34A' : '#64748B', fontWeight: 700 }} />
         </Stack>
-        <Typography variant="body2" color="text.secondary">Los vehículos registrados en TMS aparecen en la lista combinada de vehículos del CMMS (llantas, combustible, lubricación) y se pueden reflejar como activos para llevarles mantenimiento. Sin TMS, los vehículos se registran directamente como activos.</Typography>
+        <Typography variant="body2" color="text.secondary">Los vehículos registrados en TMS aparecen en la lista combinada de vehículos de Gestión de Activos (llantas, combustible, lubricación) y se pueden reflejar como activos para llevarles mantenimiento. Sin TMS, los vehículos se registran directamente como activos.</Typography>
       </Paper>
       <Paper elevation={0} sx={{ p: 2.5, border: '1px solid #E5E7EB', borderRadius: 2, mb: 2 }}>
         <Typography fontWeight={700} mb={0.5}>Parte del propio CMMS</Typography>
-        <Typography variant="body2" color="text.secondary">Flota, llantas, combustible, lubricación, checklists e inventario de repuestos no son integraciones: son módulos del CMMS y comparten los mismos activos y órdenes de trabajo. Los repuestos de una OT cerrada descuentan el inventario automáticamente.</Typography>
+        <Typography variant="body2" color="text.secondary">Flota, llantas, combustible, lubricación, checklists e inventario de repuestos no son integraciones: son módulos de Gestión de Activos y comparten los mismos activos y órdenes de trabajo. Los repuestos de una OT cerrada descuentan el inventario automáticamente.</Typography>
       </Paper>
-      <Alert severity="info">Recursos humanos, bodega (WMS), documentos, calidad, riesgos, contabilidad y telemetría GPS no están conectados hoy con el CMMS. Antes esta pantalla los mostraba como «activos» con horas de sincronización inventadas.</Alert>
+      <Alert severity="info">Recursos humanos, bodega (WMS), documentos, calidad, riesgos, contabilidad y telemetría GPS no están conectados hoy con Gestión de Activos. Antes esta pantalla los mostraba como «activos» con horas de sincronización inventadas.</Alert>
     </Box>
   )
 }
@@ -724,7 +724,7 @@ export default function EAMConfig() {
             <SettingsIcon sx={{ fontSize: 28 }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={700} color="#1E293B">Configuración EAM</Typography>
+            <Typography variant="h5" fontWeight={700} color="#1E293B">Configuración de Gestión de Activos</Typography>
             <Typography variant="body2" color="grey.400">Catálogos, contratistas, umbrales de aviso, integraciones y horas programadas</Typography>
           </Box>
         </Stack>

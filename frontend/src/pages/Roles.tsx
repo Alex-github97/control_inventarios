@@ -110,7 +110,7 @@ const MODULE_GROUPS: ModuleGroup[] = [
     perms: [{ key: 'crm', label: 'CRM Clientes' }],
   },
   {
-    key: 'eam', label: 'Activos EAM', abbr: 'EAM', color: '#475569',
+    key: 'eam', label: 'Gestión de Activos', abbr: 'GA', color: '#475569',
     Icon: Construction,
     perms: [{ key: 'eam', label: 'Gestión de Activos' }],
   },

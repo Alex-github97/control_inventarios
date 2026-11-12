@@ -338,14 +338,14 @@ CATALOGO: List[Herramienta] = [
         _obj({}), consultar=_mi_dia),
     Herramienta(
         "buscar_activos",
-        "Busca equipos/vehículos del CMMS por placa, código, nombre, marca o línea. Devuelve el id (necesario "
+        "Busca equipos/vehículos de Gestión de Activos por placa, código, nombre, marca o línea. Devuelve el id (necesario "
         "para crear órdenes), y la lectura actual de odómetro u horómetro. Úsala SIEMPRE antes de referirte a un "
         "equipo por su id.",
         _obj({"texto": {"type": "string", "description": "Placa, código o parte del nombre"}}, ["texto"]),
         permiso=("eam",), consultar=_buscar_activos),
     Herramienta(
         "consultar_ordenes",
-        "Lista órdenes de trabajo del CMMS con filtros; devuelve el total, el costo y una muestra. Para contar, "
+        "Lista órdenes de trabajo de Gestión de Activos con filtros; devuelve el total, el costo y una muestra. Para contar, "
         "usa el total, no la muestra.",
         _obj({
             "placa": {"type": "string"},

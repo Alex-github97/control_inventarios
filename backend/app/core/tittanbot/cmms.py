@@ -1,5 +1,5 @@
 """
-TittanBot · el resto del CMMS: lubricación, combustible, órdenes, llantas y los
+TittanBot · el resto de Gestión de Activos: lubricación, combustible, órdenes, llantas y los
 cargues masivos por Excel adjunto.
 
 Cada acción va por el mismo endpoint que usa la pantalla, con el token del
@@ -375,7 +375,7 @@ def _destinos_cmms() -> None:
                                         "/api/v1/eam/neumaticos/disposicion/importar/plantilla",
                                         "/api/v1/eam/neumaticos/disposicion/importar", ("eam",)))
     for ruta, cfg in CATALOGOS.items():
-        importar.registrar(importar.Destino(f"cmms_{ruta}", f"Catálogo del CMMS: {cfg['titulo']}",
+        importar.registrar(importar.Destino(f"cmms_{ruta}", f"Catálogo de Gestión de Activos: {cfg['titulo']}",
                                             f"/api/v1/eam/catalogos/{ruta}/plantilla",
                                             f"/api/v1/eam/catalogos/{ruta}/importar", ("eam",)))
 
@@ -496,7 +496,7 @@ HERRAMIENTAS: List[Herramienta] = [
                 permiso=EAM, destructiva=True, accion=_enviar_informe, resumir=_resumen_enviar),
     Herramienta("importar_excel",
                 "Importa el archivo adjunto por el cargue masivo de la plataforma. `destino` es uno de los que "
-                "devuelve ver_adjunto (catálogos del CMMS, muestras de aceite, viajes del TMS, ajustes y traslados "
+                "devuelve ver_adjunto (catálogos de Gestión de Activos, muestras de aceite, viajes del TMS, ajustes y traslados "
                 "del WMS). El usuario verá qué columnas se reconocieron antes de confirmar.",
                 _obj({"destino": {"type": "string"}}, ["destino"]),
                 destructiva=True, accion=importar.importar, resumir=importar.resumen),

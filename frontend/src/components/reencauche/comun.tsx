@@ -128,7 +128,7 @@ export function HojaDeVida({ q, id }: { q?: string; id?: number }) {
             <Typography sx={{ fontSize: 13 }}>{c.cliente} · {c.medida} · {c.marca} {c.modelo}</Typography>
             <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
               DOT {c.dot ?? (c.dot_ilegible ? 'ilegible' : '—')} · Serie {c.serie ?? '—'} · Reencauches {c.reencauches}
-              {c.eam_neumatico_id ? ' · Llanta de la flota (CMMS)' : ''}
+              {c.eam_neumatico_id ? ' · Llanta de la flota (Gestión de Activos)' : ''}
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'right' }}>

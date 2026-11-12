@@ -124,7 +124,7 @@ export const WORKSPACES = [
   {
     id:    'eam',
     label: 'ws.eam',
-    short: 'EAM',
+    short: 'GA',
     color: EAM_COLOR,
     path:  '/eam',
     isActive: (p: string) => p.startsWith('/eam') || p.startsWith('/flota') || p.startsWith('/locativa'),

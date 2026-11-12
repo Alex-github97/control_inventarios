@@ -1,6 +1,6 @@
 """
 Lo que entra y sale de la planta de reencauche: recepción, recogidas, entregas,
-disposición de rechazos, liquidación, garantías y el enlace con el CMMS.
+disposición de rechazos, liquidación, garantías y el enlace con Gestión de Activos.
 
 - La recogida es nueva en el TMS: un viaje de primera milla con una parada por
   sede y la planta como destino; cada parada pide cantidad y remisión.
@@ -679,7 +679,7 @@ async def depositante_flota(db: AsyncSession) -> int:
         return cfg.depositante_flota_id
     d = (await db.execute(select(WMSDepositante).where(WMSDepositante.codigo == "RTM-FLOTA"))).scalar()
     if d is None:
-        d = WMSDepositante(codigo="RTM-FLOTA", nombre="Flota propia (CMMS)", propio=False, activo=True,
+        d = WMSDepositante(codigo="RTM-FLOTA", nombre="Flota propia (Gestión de Activos)", propio=False, activo=True,
                            notas="Llantas de la flota de la empresa enviadas a su propia planta de reencauche.")
         db.add(d)
         await db.flush()
@@ -692,7 +692,7 @@ async def recibir_lote_cmms(db: AsyncSession, usuario: Usuario, lote_id: int) ->
 
     lote = await db.get(EAMReencaucheLote, lote_id)
     if lote is None:
-        raise HTTPException(404, "El lote del CMMS no existe.")
+        raise HTTPException(404, "El lote de Gestión de Activos no existe.")
     if (await db.execute(select(RTMRecepcion.id).where(RTMRecepcion.eam_lote_id == lote.id))).first():
         raise HTTPException(409, f"El lote {lote.codigo} ya se recibió en la planta.")
     dets = (await db.execute(select(EAMReencaucheDetalle, EAMNeumatico).join(
@@ -702,7 +702,7 @@ async def recibir_lote_cmms(db: AsyncSession, usuario: Usuario, lote_id: int) ->
         raise HTTPException(409, "El lote no tiene llantas pendientes.")
     rec = await crear_recepcion(db, usuario, await depositante_flota(db), remision=lote.remision or lote.codigo,
                                 cantidad_declarada=len(dets), eam_lote_id=lote.id,
-                                observaciones=f"Lote de reencauche {lote.codigo} del CMMS")
+                                observaciones=f"Lote de reencauche {lote.codigo} de Gestión de Activos")
     for det, neu in dets:
         previa = (await db.execute(select(RTMCarcasa).where(
             (RTMCarcasa.eam_neumatico_id == neu.id) | (RTMCarcasa.codigo == neu.codigo)))).scalars().first()
@@ -720,8 +720,8 @@ async def recibir_lote_cmms(db: AsyncSession, usuario: Usuario, lote_id: int) ->
 
 
 async def resultado_a_cmms(db: AsyncSession, c: RTMCarcasa, ec: RTMEntregaCarcasa) -> None:
-    """Al entregar una llanta de un lote del CMMS, el detalle del lote queda con
-    su resultado por el mismo camino de la pantalla del CMMS."""
+    """Al entregar una llanta de un lote de Gestión de Activos, el detalle del lote queda con
+    su resultado por el mismo camino de la pantalla de Gestión de Activos."""
     if not c.eam_neumatico_id:
         return
     orden = await db.get(RTMOrden, ec.orden_id)

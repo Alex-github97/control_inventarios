@@ -647,7 +647,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
       setVehId(String(activo.id))
     },
-    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo vincular el vehículo al CMMS')),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo vincular el vehículo a Gestión de Activos')),
   })
   const seleccionarVehiculo = (key: string) => {
     setVehSelKey(key)
@@ -1075,7 +1075,7 @@ export default function EAMNeumaticos() {
       qc.invalidateQueries({ queryKey: ['eam-vehiculos-disponibles'] })
       setEjesVeh(prev => prev ? { ...prev, activo_id: activo.id } : prev)
     },
-    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo vincular el vehículo al CMMS')),
+    onError: (e: any) => toast.error(mensajeDeError(e, 'No se pudo vincular el vehículo a Gestión de Activos')),
   })
   // Total de llantas del vehículo: si ya tiene layout asignado se suma tal cual;
   // si no, se estima con el patrón clásico (eje 1 = 2, resto = 4), igual que el backend.
@@ -1878,7 +1878,7 @@ export default function EAMNeumaticos() {
             <TireRepair sx={{ color: EAM_COLOR, fontSize: 34 }} />
             <Box>
               <Typography variant="h5" fontWeight={800} color={EAM_DARK}>Gestión de Neumáticos</Typography>
-              <Typography fontSize={12} color="text.secondary">CMMS · Instalación, rotación, bodega, reencauche y descarte de llantas</Typography>
+              <Typography fontSize={12} color="text.secondary">Gestión de Activos · Instalación, rotación, bodega, reencauche y descarte de llantas</Typography>
             </Box>
           </Stack>
           {[0, 2, 6].includes(tab) && (
@@ -1983,7 +1983,7 @@ export default function EAMNeumaticos() {
                           <TextField
                             {...p} label="Vehículo · escriba la placa"
                             placeholder="Buscar por placa, código, nombre o marca…"
-                            helperText={mutVincularVeh.isPending ? 'Vinculando al CMMS…' : undefined}
+                            helperText={mutVincularVeh.isPending ? 'Vinculando a Gestión de Activos…' : undefined}
                           />
                         )}
                         noOptionsText={
@@ -3485,7 +3485,7 @@ export default function EAMNeumaticos() {
             </Grid>
 
             {/* ── Ejes y llantas por vehículo ──
-                Las categorías (esquemas) se crean en EAM → Configuración → Catálogos;
+                Las categorías (esquemas) se crean en Gestión de Activos → Configuración → Catálogos;
                 aquí se le asigna una a cada vehículo de la flota. */}
             <Grid size={{ xs: 12 }}>
               <Card sx={{ bgcolor: '#FFFFFF' }}>
@@ -3496,7 +3496,7 @@ export default function EAMNeumaticos() {
                       <Box>
                         <Typography fontWeight={700}>Ejes y llantas por vehículo</Typography>
                         <Typography fontSize={11.5} color="text.secondary">
-                          Asigna a cada vehículo una categoría ya creada · las categorías se configuran en <b>EAM → Configuración → Catálogos</b>
+                          Asigna a cada vehículo una categoría ya creada · las categorías se configuran en <b>Gestión de Activos → Configuración → Catálogos</b>
                         </Typography>
                       </Box>
                     </Stack>
@@ -3944,7 +3944,7 @@ export default function EAMNeumaticos() {
                 <MenuItem value="">Sin especificar</MenuItem>
                 {danos.map(d => <MenuItem key={d.id} value={String(d.id)}>{d.nombre} ({d.severidad})</MenuItem>)}
               </TextField>
-              {danos.length === 0 && <Alert severity="info" sx={{ py: 0 }}>Configura el catálogo de daños en Configuración → EAM.</Alert>}
+              {danos.length === 0 && <Alert severity="info" sx={{ py: 0 }}>Configura el catálogo de daños en Configuración → Gestión de Activos.</Alert>}
               <TextField select label="Motivo de fin de vida" size="small" fullWidth value={bajaForm.motivo_fin_vida_id} onChange={e => setBajaForm(f => ({ ...f, motivo_fin_vida_id: e.target.value }))}>
                 <MenuItem value="">Sin especificar</MenuItem>
                 {motivosFinVida.filter(m => m.aplica_descarte).map(m => <MenuItem key={m.id} value={String(m.id)}>{m.nombre}</MenuItem>)}
@@ -4760,7 +4760,7 @@ export default function EAMNeumaticos() {
           </DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2} pt={0.5}>
-              {!ejesVeh?.activo_id && <Alert severity="info" sx={{ py: 0.5 }}>Vinculando el vehículo al CMMS…</Alert>}
+              {!ejesVeh?.activo_id && <Alert severity="info" sx={{ py: 0.5 }}>Vinculando el vehículo a Gestión de Activos…</Alert>}
               <TextField select label="Categoría de ejes/llantas *" size="small" fullWidth value={ejesForm.esquema_id} onChange={e => setEjesForm({ esquema_id: e.target.value })} disabled={!ejesVeh?.activo_id}>
                 <MenuItem value="">Seleccionar…</MenuItem>
                 {/* El Tooltip va DENTRO del MenuItem: MUI Select necesita que sus
@@ -4784,7 +4784,7 @@ export default function EAMNeumaticos() {
                 ))}
               </TextField>
               {esquemas.length === 0 ? (
-                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>
+                <Alert severity="warning" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Gestión de Activos → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>
               ) : (
                 <Alert severity="info" sx={{ py: 0 }}>Pasa el cursor sobre cada categoría para ver el diagrama de ejes y llantas que aplicaría.</Alert>
               )}

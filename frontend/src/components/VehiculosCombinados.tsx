@@ -86,7 +86,7 @@ export function VehiculosCombinados({
       qc.invalidateQueries({ queryKey: ['vehiculos-combinados'] })
       setLayoutVeh(prev => prev ? { ...prev, activo_id: activo.id } : prev)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular al CMMS'),
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? 'No se pudo vincular a Gestión de Activos'),
   })
 
   const abrirLayout = (v: VehiculoCombinado) => {
@@ -120,7 +120,7 @@ export function VehiculosCombinados({
     { key: 'modelo', header: 'Modelo' }, { key: 'anio', header: 'Año' },
     { key: 'numero_ejes', header: 'Ejes' }, { key: 'motor_marca', header: 'Motor' },
     { key: 'motor_cc', header: 'CC' }, { key: 'propietario', header: 'Responsable/Propietario' },
-    { key: 'cmms', header: 'Config. llantas (CMMS)' },
+    { key: 'cmms', header: 'Config. llantas (Gestión de Activos)' },
   ]
 
   const exportar = (tipo: 'pdf' | 'excel') => {
@@ -158,8 +158,8 @@ export function VehiculosCombinados({
       </Stack>
 
       <Typography fontSize={12} color="#94A3B8" mb={1}>
-        Flota propia = registrada en el CMMS · Flota externa = vehículos del TMS/Flota · a cada vehículo se le
-        asigna una categoría de ejes/llantas ya creada (las categorías se pre-configuran en EAM → Configuración → Catálogos → Esquemas de vehículo).
+        Flota propia = registrada en Gestión de Activos · Flota externa = vehículos del TMS/Flota · a cada vehículo se le
+        asigna una categoría de ejes/llantas ya creada (las categorías se pre-configuran en Gestión de Activos → Configuración → Catálogos → Esquemas de vehículo).
       </Typography>
 
       <Paper elevation={0} sx={{ bgcolor: '#FFFFFF', border: `1px solid ${color}40`, borderRadius: '14px', overflowX: 'auto' }}>
@@ -191,11 +191,11 @@ export function VehiculosCombinados({
                       {v.numero_ejes != null ? `${v.numero_ejes} eje(s)` : 'Configurar'}
                     </Button>
                   ) : (
-                    <Tooltip title="Vincula este vehículo al CMMS para poder configurar ejes/llantas y usarlo en Neumáticos">
+                    <Tooltip title="Vincula este vehículo a Gestión de Activos para poder configurar ejes/llantas y usarlo en Neumáticos">
                       <Button size="small" variant="outlined" startIcon={<LinkIcon sx={{ fontSize: 15 }} />}
                         onClick={() => { setLayoutVeh(v); mutVincular.mutate(v) }} disabled={mutVincular.isPending}
                         sx={{ textTransform: 'none', fontSize: 11.5, color, borderColor: `${color}66` }}>
-                        Vincular al CMMS
+                        Vincular a Gestión de Activos
                       </Button>
                     </Tooltip>
                   )}
@@ -211,7 +211,7 @@ export function VehiculosCombinados({
         </Table>
       </Paper>
 
-      {/* Alta de vehículo de flota propia (CMMS) */}
+      {/* Alta de vehículo de flota propia (Gestión de Activos) */}
       <Dialog open={nuevoOpen} onClose={() => setNuevoOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
           <DirectionsCar sx={{ color }} /> Nuevo vehículo · Flota propia
@@ -253,7 +253,7 @@ export function VehiculosCombinados({
                   ))}
                 </TextField>
               </Grid>
-              {esquemas.length === 0 && <Grid size={{ xs: 12 }}><Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert></Grid>}
+              {esquemas.length === 0 && <Grid size={{ xs: 12 }}><Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Gestión de Activos → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert></Grid>}
             </>}
             <Grid size={{ xs: 12 }}><Typography fontSize={12} fontWeight={700} color="#94A3B8" mt={1}>MOTOR</Typography></Grid>
             <Grid size={{ xs: 12, sm: 5 }}><TextField label="Marca del motor" size="small" fullWidth value={form.motor_marca} onChange={e => setForm(f => ({ ...f, motor_marca: e.target.value }))} /></Grid>
@@ -278,14 +278,14 @@ export function VehiculosCombinados({
         </DialogActions>
       </Dialog>
 
-      {/* Asignar categoría de ejes/llantas (pre-configurada) a un vehículo ya vinculado al CMMS */}
+      {/* Asignar categoría de ejes/llantas (pre-configurada) a un vehículo ya vinculado a Gestión de Activos */}
       <Dialog open={!!layoutVeh} onClose={() => setLayoutVeh(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Ejes y llantas
           <Typography variant="caption" color="text.secondary" display="block">{layoutVeh?.placa} — usado por el módulo de Neumáticos</Typography>
         </DialogTitle>
         <DialogContent dividers>
           {!layoutVeh?.activo_id ? (
-            <Alert severity="info">Vinculando al CMMS…</Alert>
+            <Alert severity="info">Vinculando a Gestión de Activos…</Alert>
           ) : (
             <Stack spacing={2} pt={0.5}>
               <TextField select label="Categoría de ejes/llantas" size="small" fullWidth value={layoutEsquemaId} onChange={e => setLayoutEsquemaId(e.target.value)}>
@@ -308,7 +308,7 @@ export function VehiculosCombinados({
                     </MenuItem>
                   ))}
               </TextField>
-              {esquemas.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>EAM → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>}
+              {esquemas.length === 0 && <Alert severity="info" sx={{ py: 0.5 }}>Aún no hay categorías creadas. Pre-configúralas en <b>Gestión de Activos → Configuración → Catálogos → Esquemas de vehículo</b> y luego solo se asignan aquí.</Alert>}
             </Stack>
           )}
         </DialogContent>

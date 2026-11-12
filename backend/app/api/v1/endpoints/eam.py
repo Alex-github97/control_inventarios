@@ -1071,7 +1071,7 @@ async def create_solucion(data: SolucionCreate, db: AsyncSession = Depends(get_d
 
 
 def _registrar_edicion_catalogo(ruta: str, modelo, esquema_create, esquema_response, etiqueta: str):
-    """Agrega el PUT y el DELETE de un catálogo del CMMS.
+    """Agrega el PUT y el DELETE de un catálogo de Gestión de Activos.
 
     El alta y el listado ya estaban escritos uno por uno arriba; lo que faltaba
     para poder administrarlos desde la configuración era editar y desactivar.
@@ -5358,7 +5358,7 @@ async def _resolver_catalogo_activo(db: AsyncSession, valores: dict) -> None:
     candidatas = r.scalars().all()
     if not candidatas:
         raise ValueError("La marca '%s' no esta en el catalogo. Agreguela en la "
-                         "configuracion del CMMS antes de usarla." % marca_txt)
+                         "configuracion de Gestión de Activos antes de usarla." % marca_txt)
     # Se prefiere la marca del tipo pedido; si no hay, la general
     marca = next((m for m in candidatas if tipo and m.tipo_activo == tipo), None)
     if marca is None:

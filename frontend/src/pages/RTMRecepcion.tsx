@@ -113,7 +113,7 @@ function Registro({ rid }: { rid: number }) {
           <Typography sx={{ fontWeight: 800 }}>{rec.codigo} · {rec.cliente}</Typography>
           <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
             Remisión {rec.remision ?? '—'} · remitidas {rec.cantidad_declarada ?? 'sin dato'} · registradas {rec.registradas}
-            {rec.viaje_id ? ' · llegó en un viaje de recogida' : ''}{rec.eam_lote_id ? ' · lote del CMMS' : ''}
+            {rec.viaje_id ? ' · llegó en un viaje de recogida' : ''}{rec.eam_lote_id ? ' · lote de Gestión de Activos' : ''}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -201,8 +201,8 @@ function PorRecibir({ onCreada }: { onCreada: (id: number) => void }) {
           ]} />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
-        <Typography sx={{ fontWeight: 700, mb: 1 }}>Lotes de reencauche de la flota (CMMS)</Typography>
-        <TablaRegistros filas={lotes.data ?? []} cargando={lotes.isLoading} vacio="No hay lotes del CMMS por recibir" etiqueta={(l: any) => l.codigo}
+        <Typography sx={{ fontWeight: 700, mb: 1 }}>Lotes de reencauche de la flota (Gestión de Activos)</Typography>
+        <TablaRegistros filas={lotes.data ?? []} cargando={lotes.isLoading} vacio="No hay lotes de Gestión de Activos por recibir" etiqueta={(l: any) => l.codigo}
           extra={(l: any) => <Button size="small" variant="outlined" startIcon={<Inventory />} onClick={() => desdeLote(l)}>Recibir lote</Button>}
           columnas={[
             { titulo: 'Lote', valor: (l: any) => l.codigo }, { titulo: 'Enviado', valor: (l: any) => l.fecha_envio },

@@ -38,7 +38,7 @@ export function useTieneCmms(): boolean {
 /** Las dos apps: TittanWare (órdenes del CMMS) y TittanLite (llantas en campo). */
 export type AppMovilId = 'cmms' | 'lite'
 const APPS: Record<AppMovilId, { nombre: string; lema: string }> = {
-  cmms: { nombre: 'TittanWare', lema: 'Las órdenes de trabajo del CMMS en el teléfono' },
+  cmms: { nombre: 'TittanWare', lema: 'Las órdenes de trabajo de Gestión de Activos en el teléfono' },
   lite: { nombre: 'TittanLite', lema: 'Inspecciones y disposición final de llantas en campo, sin señal' },
 }
 

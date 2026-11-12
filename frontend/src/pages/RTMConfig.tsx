@@ -71,7 +71,7 @@ function Equipos() {
     { clave: 'tipo', etiqueta: 'Tipo', tipo: 'seleccion', obligatorio: true, ancho: 6, opciones: (tipos.data ?? []).map(t => [t, t.toLowerCase()] as [string, string]) },
     { clave: 'capacidad', etiqueta: 'Capacidad (llantas por ciclo)', tipo: 'numero', min: 1, ancho: 6 },
     { clave: 'estado', etiqueta: 'Estado', tipo: 'seleccion', ancho: 6, opciones: [['ACTIVO', 'Activo'], ['MANTENIMIENTO', 'Mantenimiento'], ['INACTIVO', 'Inactivo']] },
-    { clave: 'eam_activo_id', etiqueta: 'Activo del CMMS (id, opcional)', tipo: 'numero', ancho: 6 },
+    { clave: 'eam_activo_id', etiqueta: 'Activo de Gestión de Activos (id, opcional)', tipo: 'numero', ancho: 6 },
   ]
   return (
     <>

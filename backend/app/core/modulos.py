@@ -33,7 +33,7 @@ MODULOS: List[Modulo] = [
     # Sus rutas siguen existiendo y ahora pertenecen al CMMS, así que quien
     # contrata mantenimiento tiene la flota y no hay que venderlas por separado.
     # Se pudo hacer sin romper nada porque ningún cliente tenía `flota` activo.
-    Modulo("eam",     "CMMS / EAM · Mantenimiento",
+    Modulo("eam",     "GA · Gestión de Activos",
            ("/eam", "/mantenimiento", "/lubricacion", "/flota", "/vehiculos", "/movil")),
     Modulo("ags",     "AGS · Agenda de Servicios", ("/ags",)),
     Modulo("pos",     "POS · Punto de Venta", ("/pos",)),

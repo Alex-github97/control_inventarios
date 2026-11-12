@@ -1,8 +1,8 @@
 """
-App móvil del CMMS: sesión de dispositivo, versión publicada y descarga del APK.
+App móvil de Gestión de Activos: sesión de dispositivo, versión publicada y descarga del APK.
 
 - `POST /movil/sesion`: ingreso desde el teléfono. Mismas comprobaciones que
-  el portal (`auth.autenticar`) y además exige el CMMS contratado. Devuelve un
+  el portal (`auth.autenticar`) y además exige Gestión de Activos contratado. Devuelve un
   token de acceso normal y un secreto de renovación de un solo uso.
 - `POST /movil/renovar`: cambia el secreto por un token nuevo y un secreto
   nuevo. Falla si el dispositivo se revocó, venció (30 días sin uso), el
@@ -102,7 +102,7 @@ async def _exigir_cmms(codigo: str) -> None:
     permitidos = await modulos_de(codigo)
     if "*" not in permitidos and "eam" not in permitidos:
         raise HTTPException(status.HTTP_403_FORBIDDEN,
-                            "Su empresa no tiene contratado el CMMS, que es lo que trae la app móvil.")
+                            "Su empresa no tiene contratado el módulo Gestión de Activos, que es lo que trae la app móvil.")
 
 
 @router.post("/sesion", response_model=SesionMovilResponse)
@@ -262,7 +262,7 @@ async def enlace_descarga(app: str = "cmms", usuario: Usuario = Depends(get_curr
     falla en Android (navegadores de lectores de QR, Samsung Internet, datos
     móviles lentos). Y el navegador no manda la cabecera Authorization al abrir
     un enlace, por eso el permiso va firmado en la URL. Se emite aquí, con sesión
-    y con el CMMS ya comprobado por el middleware de módulos.
+    y con Gestión de Activos ya comprobado por el middleware de módulos.
     """
     if _manifiesto(app) is None:
         raise HTTPException(404, "Todavía no hay una versión publicada de la app.")

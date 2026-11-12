@@ -230,7 +230,7 @@ export function CausaRaizOT({ otId, otNumero }: { otId: number; otNumero?: strin
           {/* Las tres son listas del catálogo y no texto libre: son justo lo
               que el tablero de causas agrupa. Escritas a mano, «fuga de
               aceite» y «Fuga aceite» cuentan como dos causas y el Pareto
-              queda partido. Se configuran en CMMS · Configuración · Catálogos. */}
+              queda partido. Se configuran en Gestión de Activos · Configuración · Catálogos. */}
           <SelectorCatalogo modulo="EAM" tipo="METODO_DETECCION"
             label="Cómo se detectó" valor={rca.deteccion ?? ''}
             onChange={v => set('deteccion', v)} sx={{ flex: 1 }} />

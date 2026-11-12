@@ -57,7 +57,7 @@ PERMISOS_PERFIL: List[Permiso] = [
     Permiso("grc",  "GRC · Riesgo y cumplimiento",     "Módulos"),
     Permiso("lms",  "LMS · Formación",                 "Módulos"),
     Permiso("crm",  "CRM · Comercial",                 "Módulos"),
-    Permiso("eam",  "CMMS / EAM · Mantenimiento",      "Módulos"),
+    Permiso("eam",  "GA · Gestión de Activos",           "Módulos"),
     Permiso("mes",  "MES · Producción",                "Módulos"),
     Permiso("aps",  "APS · Planeación",                "Módulos"),
     # Los tres que faltaban: el portal los exigía y el servidor los descartaba.

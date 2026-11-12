@@ -117,9 +117,9 @@ const MODULES = [
   },
   {
     id: 'flota',
-    badge: 'GF',
+    badge: 'GA',
     appName: 'Gestión de',
-    appAccent: 'Flotas',
+    appAccent: 'Activos',
     headline: 'Control total',
     headlineAccent: 'de tu flota vehicular',
     description: 'Módulo integral de gestión de flotas para la compañía.\nVehículos, mantenimiento, combustible y documentos.',

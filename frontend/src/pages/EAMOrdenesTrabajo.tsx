@@ -415,7 +415,7 @@ function EditorLineas({
                   renderInput={params => (
                     <TextField {...params} label="Trabajo" size="small" fullWidth
                       helperText={nombresActividad.length === 0
-                        ? 'Sin actividades. Agréguelas en CMMS · Configuración.' : undefined} />
+                        ? 'Sin actividades. Agréguelas en Gestión de Activos · Configuración.' : undefined} />
                   )} />
               </Grid>
               <Grid size={{ xs: 6, sm: 4 }}>
@@ -515,7 +515,7 @@ function EditorLineas({
                 renderInput={params => (
                   <TextField {...params} label="Repuesto" size="small" fullWidth
                     helperText={nombresRepuesto.length === 0
-                      ? 'Sin repuestos. Agréguelos en CMMS · Configuración.' : undefined} />
+                      ? 'Sin repuestos. Agréguelos en Gestión de Activos · Configuración.' : undefined} />
                 )} />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
@@ -606,7 +606,7 @@ function CamposOT({ f, set, ctx, copiarRutina }: {
         <TextField select label="Activo *" size="small" fullWidth value={f.activo_id}
           onChange={e => elegirActivo(e.target.value, set)}
           helperText={activos.length === 0
-            ? 'No hay activos dados de alta. Créelos en CMMS · Activos.' : undefined}>
+            ? 'No hay activos dados de alta. Créelos en Gestión de Activos · Activos.' : undefined}>
           <MenuItem value=""><em>Seleccionar activo…</em></MenuItem>
           {activos.map(a => (
             <MenuItem key={a.id} value={String(a.id)}>{etiquetaActivo(a.id)}</MenuItem>
@@ -639,7 +639,7 @@ function CamposOT({ f, set, ctx, copiarRutina }: {
             set(p => ({ ...p, contratista_id: v, tecnico_asignado: v ? '' : p.tecnico_asignado }))
           }}
           helperText={contratistas.length === 0
-            ? 'Sin contratistas cargados. Agréguelos en CMMS · Configuración.'
+            ? 'Sin contratistas cargados. Agréguelos en Gestión de Activos · Configuración.'
             : 'Quién responde por la OT'}>
           <MenuItem value="">Taller interno</MenuItem>
           {contratistas.map(c => <MenuItem key={c.id} value={String(c.id)}>{c.nombre}</MenuItem>)}
@@ -651,7 +651,7 @@ function CamposOT({ f, set, ctx, copiarRutina }: {
           valor={f.tecnico_asignado} deshabilitado={Boolean(f.contratista_id)}
           ayuda={f.contratista_id
             ? 'La OT la atiende un contratista'
-            : 'Los técnicos se dan de alta en CMMS · Configuración · Catálogos'}
+            : 'Los técnicos se dan de alta en Gestión de Activos · Configuración · Catálogos'}
           onChange={v => set(p => ({ ...p, tecnico_asignado: v }))} />
       </Grid>
 
@@ -673,7 +673,7 @@ function CamposOT({ f, set, ctx, copiarRutina }: {
           helperText={!f.activo_id
             ? 'Elija primero el activo'
             : rutinas.length === 0
-              ? 'Este activo no tiene rutinas programadas. Créelas en CMMS · Planes de Mant.'
+              ? 'Este activo no tiene rutinas programadas. Créelas en Gestión de Activos · Planes de Mant.'
               : 'Se marca como cumplida cuando la OT pase a COMPLETADA'}>
           <MenuItem value="">Ninguna · es un trabajo suelto</MenuItem>
           {rutinas.map(p => (
@@ -1110,7 +1110,7 @@ export default function EAMOrdenesTrabajo() {
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1 }}>Órdenes de Trabajo</Typography>
               <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                CMMS · Kanban, tabla y creación
+                Gestión de Activos · Kanban, tabla y creación
               </Typography>
             </Box>
           </Box>
@@ -1148,7 +1148,7 @@ export default function EAMOrdenesTrabajo() {
         {activos.length === 0 && (
           <Alert severity="warning" icon={<WarningAmber />} sx={{ mb: 2 }}>
             No hay activos dados de alta. Una OT siempre va contra un activo, así que primero
-            créelos en <strong>CMMS · Activos</strong>.
+            créelos en <strong>Gestión de Activos · Activos</strong>.
           </Alert>
         )}
 

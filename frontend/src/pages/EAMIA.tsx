@@ -317,7 +317,7 @@ export default function EAMIA() {
   return (
     <Layout>
       <Box sx={{ p: 3 }}>
-        <Encabezado icono={<Insights sx={{ fontSize: 28 }} />} titulo="Analítica de confiabilidad" subtitulo="EAM · Weibull, tendencia por equipo, predicción de fallas y anomalías, con los datos de la flota" color={C} />
+        <Encabezado icono={<Insights sx={{ fontSize: 28 }} />} titulo="Analítica de confiabilidad" subtitulo="Gestión de Activos · Weibull, tendencia por equipo, predicción de fallas y anomalías, con los datos de la flota" color={C} />
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: '1px solid #E2E8F0' }} variant="scrollable">
           <Tab label="Vida por modo de falla" />
           <Tab label="Tendencia por equipo" />
