@@ -480,7 +480,8 @@ def resultado_corto(datos: Any, limite: int = 6000) -> str:
 from app.core.tittanbot import cmms as _cmms  # noqa: E402
 from app.core.tittanbot import tms as _tms  # noqa: E402
 from app.core.tittanbot import wms as _wms  # noqa: E402
+from app.core.tittanbot import lubria as _lubria  # noqa: E402
 
-CATALOGO += _cmms.HERRAMIENTAS + _tms.HERRAMIENTAS + _wms.HERRAMIENTAS
+CATALOGO += _cmms.HERRAMIENTAS + _tms.HERRAMIENTAS + _wms.HERRAMIENTAS + _lubria.HERRAMIENTAS
 
 POR_NOMBRE: Dict[str, Herramienta] = {h.nombre: h for h in CATALOGO}

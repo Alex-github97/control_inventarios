@@ -553,8 +553,16 @@ def limites_estadisticos(poblacion: Dict[str, List[float]],
             continue
         p90 = percentil(limpios, p_prec)
         p975 = percentil(limpios, p_cond)
-        if p90 is None or p975 is None or p975 <= 0:
+        if p90 is None or p975 is None:
             continue
+        # Un percentil no puede quedar por debajo del ruido del ensayo. En una
+        # flota donde el estaño casi siempre da 0 ppm, el P90 es 0 y cualquier
+        # traza saldría «fuera»: con el historial real de ICOLTRANS eso marcó
+        # seis de cada diez muestras como desgaste. El piso es el suelo de
+        # significancia de la unidad, y la condena queda al menos al doble.
+        suelo = criterio.suelo("ppm")
+        p90 = max(p90, suelo)
+        p975 = max(p975, 2 * suelo, p90)
         salida[codigo] = {
             "precaucion": round(p90, 2), "condena": round(p975, 2),
             "direccion": "ALTO", "metodo": "ASTM D5185",
@@ -605,6 +613,53 @@ def significativo(valor: float, unidad: Optional[str],
                   criterio: Optional["Criterio"] = None) -> bool:
     """¿El valor está por encima del ruido del ensayo para su unidad?"""
     return abs(valor) >= (criterio or CRITERIO_BASE).suelo(unidad)
+
+
+# Lo que se acumula con la vida del aceite. Para estos, la tendencia se lee
+# sobre la TASA —valor ÷ vida del aceite— y no sobre la concentración: el
+# hierro de un aceite con 15.000 km siempre será mayor que el de uno con 3.000,
+# y comparar las concentraciones crudas confunde envejecimiento con falla
+# (Tormos, 6.3: «el parámetro realmente interesante es la tasa de aporte de
+# metal»). Con el aceite nuevo prácticamente sin metales, C/vida es la tasa
+# media de la carga.
+ACUMULATIVOS = {"fe", "cr", "pb", "cu", "sn", "al", "ni", "mo", "si", "hollin", "oxidacion",
+                "nitracion", "sulfatacion", "pq"}
+# Los aditivos del aceite. Que suban o bajen entre muestras es reposición de
+# aceite nuevo o cambio de producto, no una falla: no disparan tendencia.
+ADITIVOS = {"b", "ca", "mg", "zn", "p", "ba"}
+# Un salto solo es señal si el valor ya está en zona relevante: desde esta
+# fracción del límite de precaución. Con el historial real de ICOLTRANS, sin
+# este piso un hierro de 12 ppm (límite 40) o un hollín de 0,5 % (límite 2,5)
+# que «subieron mucho» llenaban el tablero de avisos que nadie podía atender.
+TENDENCIA_DESDE_LIMITE = 0.5
+
+
+def evaluar_tasa(anterior: Optional[float], vida_anterior: Optional[float],
+                 actual: Optional[float], vida: Optional[float], unidad: Optional[str],
+                 criterio: Optional["Criterio"] = None) -> Optional[Dict[str, Any]]:
+    """Compara la tasa por unidad de vida del aceite contra la de la muestra
+    anterior. `None` si falta la vida de alguna de las dos o no hay con qué."""
+    criterio = criterio or CRITERIO_BASE
+    if None in (anterior, vida_anterior, actual, vida) or vida <= 0 or vida_anterior <= 0:
+        return None
+    if not significativo(actual, unidad, criterio) or abs(anterior) < criterio.suelo(unidad):
+        return None
+    tasa_ant, tasa = anterior / vida_anterior, actual / vida
+    if tasa_ant <= 0:
+        return None
+    variacion = (tasa - tasa_ant) / tasa_ant
+    if variacion >= criterio.constante("salto_condena") / 100:
+        estado = "CONDENA"
+    elif variacion >= criterio.constante("salto_precaucion") / 100:
+        estado = "PRECAUCION"
+    else:
+        return {"sin_salto": True}
+    return {
+        "variacion": round(variacion * 100, 1), "estado": estado,
+        "lectura": f"La tasa por unidad de vida del aceite subió {round(variacion * 100)} % "
+                   f"respecto de la muestra anterior ({tasa_ant * 1000:.2f} → {tasa * 1000:.2f} por cada "
+                   f"1.000 de vida).",
+    }
 
 
 def evaluar_tendencia(anterior: Optional[float], actual: Optional[float],
@@ -1303,6 +1358,7 @@ def evaluar_muestra(
     criterio: Optional["Criterio"] = None,
     tbn_nuevo: Optional[float] = None,
     visc100_nuevo: Optional[float] = None,
+    vida: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Evalúa una muestra contra los límites de norma y su propia tendencia.
 
@@ -1335,8 +1391,22 @@ def evaluar_muestra(
             limite = estadisticos.get(codigo)
 
         estado = _estado_contra(valor, limite) if limite else None
-        tendencia = evaluar_tendencia(anteriores.get(codigo), valor,
-                                      unidad, criterio)
+        # Lo acumulativo se compara por tasa cuando se conoce la vida de las
+        # dos cargas; si no, por la concentración, como siempre.
+        tendencia = None
+        tasa = (evaluar_tasa(anteriores.get(codigo), anteriores.get("_vida"), valor, vida, unidad, criterio)
+                if codigo in ACUMULATIVOS else None)
+        if tasa is not None:
+            tendencia = None if tasa.get("sin_salto") else tasa
+        else:
+            tendencia = evaluar_tendencia(anteriores.get(codigo), valor,
+                                          unidad, criterio)
+        if tendencia and codigo in ADITIVOS:
+            tendencia = None
+        if (tendencia and limite and limite.get("direccion", "ALTO") == "ALTO"
+                and limite.get("precaucion")
+                and valor < limite["precaucion"] * criterio.constante("tendencia_desde_limite_pct") / 100):
+            tendencia = None
 
         if estado is None and tendencia is None:
             continue
@@ -1798,6 +1868,18 @@ CONSTANTES: Dict[str, Dict[str, Any]] = {
         "efecto": "Depende del polvo de la zona. Subirlo exige más aluminio "
                   "para dar el polvo por confirmado y manda más muestras a "
                   "«silicio que probablemente no es polvo».",
+    },
+    "tendencia_desde_limite_pct": {
+        "valor": TENDENCIA_DESDE_LIMITE * 100, "minimo": 0.0, "maximo": 100.0,
+        "unidad": "% del límite",
+        "grupo": "Tendencia (ASTM D7669)",
+        "nombre": "Desde qué parte del límite cuenta un salto",
+        "fuentes": ["ASTM D7669", "Tormos"],
+        "que_hace": "Un salto entre muestras solo se reporta si el valor ya llegó a este porcentaje de su "
+                    "límite de precaución. Por debajo, el parámetro está lejos de cualquier riesgo aunque "
+                    "se haya movido.",
+        "efecto": "Ponerlo en cero vuelve a reportar todo salto, incluidos los de valores ínfimos; subirlo "
+                  "deja solo las subidas que ya se acercan al límite.",
     },
     "relacion_al_si_piston_min": {
         "valor": RELACION_AL_SI_PISTON[0], "minimo": 0.3, "maximo": 1.0,

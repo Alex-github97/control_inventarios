@@ -570,6 +570,11 @@ async def _anteriores(db: AsyncSession, muestras: List[LubeMuestra],
     if not necesarias:
         return {}
     valores: Dict[int, Dict[str, float]] = defaultdict(dict)
+    # La vida del aceite de la muestra anterior: con ella la tendencia de lo
+    # acumulativo se lee por tasa (Tormos 6.3) y no por concentración.
+    vida_previa = {mid: h for mid, h in (await db.execute(
+        select(LubeMuestra.id, LubeMuestra.horas_aceite)
+        .where(en_lista(LubeMuestra.id, necesarias)))).all()}
     for mid, pid, valor in (await db.execute(
         select(LubeResultado.muestra_id, LubeResultado.parametro_id,
                LubeResultado.valor)
@@ -579,6 +584,9 @@ async def _anteriores(db: AsyncSession, muestras: List[LubeMuestra],
         p = catalogo.get(pid)
         if p:
             valores[mid][p.codigo] = float(valor)
+    for mid, h in vida_previa.items():
+        if h is not None:
+            valores[mid]["_vida"] = float(h)
 
     return {m.id: valores.get(previa_de.get(m.id, -1), {}) for m in muestras}
 
@@ -717,6 +725,7 @@ async def tablero(
                 meta_iso=comp.meta_iso4406,
                 iso_medido=iso_medido,
                 criterio=criterio,
+                vida=muestra.horas_aceite,
                 tbn_nuevo=fichas.get(muestra.carga_id or -1, (None, None))[0],
                 visc100_nuevo=fichas.get(muestra.carga_id or -1, (None, None))[1],
             )

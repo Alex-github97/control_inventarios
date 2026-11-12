@@ -12,7 +12,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import desc, select, text
+from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -31,6 +31,8 @@ router = APIRouter(prefix="/tittanbot", tags=["TittanBot"])
 class MensajeIn(BaseModel):
     mensaje: str
     conversacion_id: Optional[int] = None
+    # «tittanbot» (la burbuja general) o «lubria» (análisis de aceite).
+    agente: str = "tittanbot"
 
 
 class ConfirmarIn(BaseModel):
@@ -61,7 +63,8 @@ async def mensaje(data: MensajeIn, request: Request, db: AsyncSession = Depends(
         raise HTTPException(422, "El mensaje es muy largo; resúmalo en menos de 4.000 caracteres.")
     return await motor.responder(db=db, usuario=usuario, esquema=esquema_actual() or "public",
                                  empresa=await _empresa(db), headers=_cabeceras(request),
-                                 mensaje=data.mensaje, conversacion_id=data.conversacion_id)
+                                 mensaje=data.mensaje, conversacion_id=data.conversacion_id,
+                                 agente=data.agente)
 
 
 @router.post("/confirmar")
@@ -73,8 +76,11 @@ async def confirmar(data: ConfirmarIn, request: Request, db: AsyncSession = Depe
 
 
 @router.get("/conversaciones")
-async def conversaciones(db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
-    filas = (await db.execute(select(TittanbotConversacion).where(TittanbotConversacion.usuario_id == usuario.id)
+async def conversaciones(agente: str = "tittanbot", db: AsyncSession = Depends(get_db),
+                         usuario: Usuario = Depends(get_current_user)):
+    filas = (await db.execute(select(TittanbotConversacion).where(
+        TittanbotConversacion.usuario_id == usuario.id,
+        func.coalesce(TittanbotConversacion.agente, "tittanbot") == agente)
                               .order_by(desc(TittanbotConversacion.ultimo_en)).limit(20))).scalars().all()
     return [{"id": c.id, "titulo": c.titulo, "ultimo_en": c.ultimo_en} for c in filas]
 
@@ -140,6 +146,7 @@ def _leer_tabla(nombre: str, contenido: bytes):
 
 @router.post("/adjunto")
 async def adjuntar(archivo: UploadFile = File(...), conversacion_id: Optional[int] = Form(None),
+                   agente: str = Form("tittanbot"),
                    db: AsyncSession = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
     """El Excel o CSV que el usuario adjunta en el chat. Se lee una vez acá y
     queda guardado en la conversación para que el bot lo revise y lo importe."""
@@ -158,7 +165,8 @@ async def adjuntar(archivo: UploadFile = File(...), conversacion_id: Optional[in
         raise HTTPException(413, f"El archivo trae {len(filas)} filas; el máximo por cargue es {MAX_FILAS}.")
     conv = await db.get(TittanbotConversacion, conversacion_id) if conversacion_id else None
     if conv is None or conv.usuario_id != usuario.id:
-        conv = TittanbotConversacion(usuario_id=usuario.id, titulo=f"Archivo {archivo.filename}"[:80])
+        conv = TittanbotConversacion(usuario_id=usuario.id, titulo=f"Archivo {archivo.filename}"[:80],
+                                     agente="lubria" if agente == "lubria" else "tittanbot")
         db.add(conv)
         await db.flush()
     db.add(TittanbotAdjunto(conversacion_id=conv.id, usuario_id=usuario.id, nombre=archivo.filename or "archivo",

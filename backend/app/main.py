@@ -1299,6 +1299,8 @@ async def _migrar_esquema(esquema: str) -> None:
             # Lubricación: la ficha del aceite nuevo (Tormos juzga contra ella).
             ("eam_lube_producto", "tbn_nuevo", "DOUBLE PRECISION"),
             ("eam_lube_producto", "visc100_nuevo", "DOUBLE PRECISION"),
+            # TittanBot: conversaciones por asistente (Lubr-IA va aparte).
+            ("tittanbot_conversacion", "agente", "VARCHAR(20) DEFAULT 'tittanbot'"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

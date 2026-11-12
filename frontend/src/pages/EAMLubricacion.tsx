@@ -35,6 +35,7 @@ import {
 } from '@/api/lube'
 import { mensajeDeError } from '@/utils/errorApi'
 import { apiClient as api } from '@/api/client'
+import { LubrIA } from '@/components/lubricacion/LubrIA'
 
 const fecha = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
@@ -371,6 +372,7 @@ export default function EAMLubricacion() {
           <Tab label={`Compartimentos (${num(compartimentos.length)})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label={`Muestras (${totalMuestras == null ? '…' : num(totalMuestras)})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
           <Tab label={`Por muestrear (${num(conteoPend.VENCIDO + conteoPend.PROXIMO)})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+          <Tab icon={<Science fontSize="small" />} iconPosition="start" label="Lubr-IA" sx={{ textTransform: 'none', fontWeight: 700, minHeight: 48 }} />
         </Tabs>
 
         {/* ── Compartimentos ─────────────────────────────────────────────────── */}
@@ -521,6 +523,9 @@ export default function EAMLubricacion() {
 
         {/* ── Muestras ───────────────────────────────────────────────────────── */}
         {tab === 1 && <ListaMuestras onVer={setVerMuestra} />}
+
+        {/* ── Lubr-IA: el chat de análisis de aceite ─────────────────────────── */}
+        {tab === 3 && <LubrIA />}
 
         {/* ── Por muestrear ──────────────────────────────────────────────────── */}
         {tab === 2 && (

@@ -25,7 +25,7 @@ import { ACENTO, PALETA } from '@/config/marca'
 import { tittanbotApi, type AccionPendiente, type Descarga } from '@/api/tittanbot'
 import { mensajeDeError } from '@/utils/errorApi'
 
-interface Mensaje {
+export interface Mensaje {
   rol: 'usuario' | 'asistente'
   texto: string
   accion?: AccionPendiente
@@ -51,7 +51,7 @@ const SUGERENCIAS = [
 ]
 
 /** Markdown mínimo: **negrita**, listas con guion o número, y saltos de línea. */
-function Texto({ texto }: { texto: string }) {
+export function Texto({ texto }: { texto: string }) {
   const lineas = texto.split('\n')
   const negrita = (s: string): ReactNode[] =>
     s.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
@@ -70,7 +70,7 @@ function Texto({ texto }: { texto: string }) {
   )
 }
 
-function Burbuja({ m, onConfirmar, ocupado }: {
+export function Burbuja({ m, onConfirmar, ocupado }: {
   m: Mensaje; onConfirmar: (si: boolean) => void; ocupado: boolean
 }) {
   const mio = m.rol === 'usuario'

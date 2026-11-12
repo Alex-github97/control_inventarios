@@ -16,16 +16,18 @@ const B = '/tittanbot'
 
 export const tittanbotApi = {
   estado: () => api.get<{ activo: boolean; modelo?: string | null }>(`${B}/estado`).then(r => r.data),
-  mensaje: (mensaje: string, conversacion_id?: number | null) =>
-    api.post<RespuestaBot>(`${B}/mensaje`, { mensaje, conversacion_id: conversacion_id ?? null },
+  /** `agente`: «tittanbot» (la burbuja) o «lubria» (el chat de análisis de aceite). */
+  mensaje: (mensaje: string, conversacion_id?: number | null, agente: 'tittanbot' | 'lubria' = 'tittanbot') =>
+    api.post<RespuestaBot>(`${B}/mensaje`, { mensaje, conversacion_id: conversacion_id ?? null, agente },
       { timeout: 120_000 }).then(r => r.data),
   confirmar: (conversacion_id: number, aceptar: boolean) =>
     api.post<ResultadoConfirmar>(`${B}/confirmar`, { conversacion_id, aceptar },
       { timeout: 120_000 }).then(r => r.data),
   /** Un Excel o CSV para que el bot lo revise e importe. */
-  adjuntar: (archivo: File, conversacion_id?: number | null) => {
+  adjuntar: (archivo: File, conversacion_id?: number | null, agente: 'tittanbot' | 'lubria' = 'tittanbot') => {
     const fd = new FormData()
     fd.append('archivo', archivo)
+    fd.append('agente', agente)
     if (conversacion_id) fd.append('conversacion_id', String(conversacion_id))
     return api.post<{ conversacion_id: number; nombre: string; filas: number; columnas: string[] }>(
       `${B}/adjunto`, fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120_000 }).then(r => r.data)

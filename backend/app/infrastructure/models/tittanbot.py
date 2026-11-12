@@ -14,6 +14,9 @@ class TittanbotConversacion(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
     titulo = Column(String(200))
+    # Qué asistente la lleva: «tittanbot» (la burbuja general) o «lubria» (el
+    # chat de análisis de aceite del módulo de lubricación). No se mezclan.
+    agente = Column(String(20), default="tittanbot", server_default="tittanbot", index=True)
     ultimo_en = Column(DateTime, server_default=func.now(), index=True)
     # La acción que el bot propuso y espera «Confirmar». Se guarda acá y no se
     # recibe del navegador: lo que se ejecuta es exactamente lo que se mostró.

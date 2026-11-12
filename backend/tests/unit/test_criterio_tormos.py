@@ -86,3 +86,24 @@ def test_viscosidad_contra_el_aceite_nuevo():
     _, ev = regla({"visc100": 10.0}, grado_sae="15W-40", visc100_nuevo=15.0)
     d = ev["desvio_viscosidad"]
     assert d["referencia"] == 15.0 and d["estado"] == "CONDENA" and d["criterio"] == "Aceite nuevo + Tormos"
+
+
+def test_tendencia_por_tasa_no_confunde_envejecimiento_con_falla():
+    # Mismo hierro por km de aceite (30 ppm a 10.000 km y 45 a 15.000): no es salto.
+    _, ev = regla({"fe": 45}, anteriores={"fe": 30, "_vida": 10000}, vida=15000)
+    assert not (ev["hallazgos"].get("fe") or {}).get("tendencia")
+    # La tasa se triplica (30 a 10.000 km → 30 a 3.000 km) y el valor ya está en zona: salto.
+    _, ev = regla({"fe": 30}, anteriores={"fe": 30, "_vida": 10000}, vida=3000)
+    assert ev["hallazgos"]["fe"]["tendencia"]["estado"] == "CONDENA"
+
+
+def test_aditivos_y_valores_infimos_no_disparan_tendencia():
+    _, ev = regla({"b": 200, "fe": 9}, anteriores={"b": 40, "fe": 2})
+    assert "b" not in ev["hallazgos"]          # el boro es aditivo
+    assert "fe" not in ev["hallazgos"]         # 9 ppm, por debajo de la mitad del límite de 20
+
+
+def test_percentil_de_flota_no_queda_bajo_el_ruido():
+    from app.core.normas_lubricacion import limites_estadisticos
+    lim = limites_estadisticos({"sn": [0.0] * 200 + [1.0] * 10})
+    assert lim["sn"]["precaucion"] >= 5.0 and lim["sn"]["condena"] >= 10.0

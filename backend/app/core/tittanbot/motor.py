@@ -121,12 +121,13 @@ async def _consumir_cupo(esquema: str, uid: int) -> None:
         raise HTTPException(429, "Su empresa llegó al límite diario de mensajes a TittanBot.")
 
 
-async def _conversacion(db, uid: int, cid: Optional[int], primer_mensaje: str) -> TittanbotConversacion:
+async def _conversacion(db, uid: int, cid: Optional[int], primer_mensaje: str,
+                        agente: str = "tittanbot") -> TittanbotConversacion:
     if cid:
         c = await db.get(TittanbotConversacion, cid)
-        if c and c.usuario_id == uid:
+        if c and c.usuario_id == uid and (c.agente or "tittanbot") == agente:
             return c
-    c = TittanbotConversacion(usuario_id=uid, titulo=primer_mensaje[:80])
+    c = TittanbotConversacion(usuario_id=uid, titulo=primer_mensaje[:80], agente=agente)
     db.add(c)
     await db.flush()
     return c
@@ -149,10 +150,12 @@ async def _historia(db, cid: int, limite: int = 20) -> List[dict]:
     return salida
 
 
-def _sistema(persona: Persona, empresa: str) -> List[dict]:
+def _sistema(persona: Persona, empresa: str, agente: str = "tittanbot") -> List[dict]:
+    from app.core.tittanbot import lubria
     hoy = datetime.now()
     return [
-        {"type": "text", "text": PROMPT, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": lubria.PROMPT if agente == lubria.AGENTE else PROMPT,
+         "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": f"Empresa: {empresa}. Usuario: {persona.nombre_completo} "
                                  f"({persona.username}). Hoy es {hoy:%Y-%m-%d %H:%M}, hora de Colombia."},
     ]
@@ -176,7 +179,9 @@ def _cliente() -> anthropic.AsyncAnthropic:
 
 
 async def responder(*, db, usuario, esquema: str, empresa: str, headers: Dict[str, str],
-                    mensaje: str, conversacion_id: Optional[int]) -> dict:
+                    mensaje: str, conversacion_id: Optional[int], agente: str = "tittanbot") -> dict:
+    from app.core.tittanbot import lubria
+    agente = lubria.AGENTE if agente == lubria.AGENTE else "tittanbot"
     if not configurado():
         raise HTTPException(503, "TittanBot todavía no está activado en este servidor.")
     mensaje = (mensaje or "").strip()
@@ -185,12 +190,15 @@ async def responder(*, db, usuario, esquema: str, empresa: str, headers: Dict[st
     await _consumir_cupo(esquema, usuario.id)
 
     persona = await _persona(usuario, esquema)
-    conv = await _conversacion(db, usuario.id, conversacion_id, mensaje)
+    conv = await _conversacion(db, usuario.id, conversacion_id, mensaje, agente)
     conv.pendiente = None     # un mensaje nuevo descarta la tarjeta que hubiera
     historia = await _historia(db, conv.id)
     ctx = Contexto(db=db, usuario=persona, esquema=esquema, headers=headers, conversacion_id=conv.id)
 
-    herramientas = [h.para_modelo() for h in disponibles(persona)]
+    abiertas = disponibles(persona)
+    if agente == lubria.AGENTE:
+        abiertas = lubria.filtrar(abiertas)
+    herramientas = [h.para_modelo() for h in abiertas]
     if herramientas:
         herramientas[-1] = {**herramientas[-1], "cache_control": {"type": "ephemeral"}}
     mensajes: List[dict] = [*historia, {"role": "user", "content": mensaje}]
@@ -200,7 +208,7 @@ async def responder(*, db, usuario, esquema: str, empresa: str, headers: Dict[st
     try:
         for _ in range(settings.TITTANBOT_MAX_VUELTAS):
             resp = await cliente.beta.messages.create(
-                max_tokens=16000, system=_sistema(persona, empresa), tools=herramientas,
+                max_tokens=16000, system=_sistema(persona, empresa, agente), tools=herramientas,
                 messages=mensajes, **_opciones_modelo(),
             )
             if resp.stop_reason == "refusal":
