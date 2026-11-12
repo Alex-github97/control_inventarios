@@ -6783,7 +6783,7 @@ export interface paths {
          *     falla en Android (navegadores de lectores de QR, Samsung Internet, datos
          *     móviles lentos). Y el navegador no manda la cabecera Authorization al abrir
          *     un enlace, por eso el permiso va firmado en la URL. Se emite aquí, con sesión
-         *     y con el CMMS ya comprobado por el middleware de módulos.
+         *     y con Gestión de Activos ya comprobado por el middleware de módulos.
          */
         post: operations["enlace_descarga_api_v1_movil_enlace_descarga_post"];
         delete?: never;
