@@ -794,6 +794,8 @@ async def pdf_cotizacion(req: CotizacionReq, current_user: Usuario = Depends(get
         return str(s).encode("latin-1", "replace").decode("latin-1")
 
     pdf = FPDF(format="A4", unit="mm")
+    from app.core.pdf_marca import enlace_web
+    pdf.footer = lambda: enlace_web(pdf, texto="Generado con TittanWare · tittanware.com")
     pdf.set_auto_page_break(True, margin=16)
     pdf.add_page()
     W = 210
@@ -1320,6 +1322,8 @@ async def svc_pdf(servicio: str, req: CosteoReq, current_user: Usuario = Depends
         return str(x).encode("latin-1", "replace").decode("latin-1")
 
     pdf = FPDF(format="A4", unit="mm")
+    from app.core.pdf_marca import enlace_web
+    pdf.footer = lambda: enlace_web(pdf, texto="Generado con TittanWare · tittanware.com")
     pdf.set_auto_page_break(True, margin=16)
     pdf.add_page()
     W, M = 210, 14

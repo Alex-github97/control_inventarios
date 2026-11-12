@@ -16,7 +16,7 @@ from statistics import median
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from app.core.pdf_marca import (
-    AZUL_NOCHE, FONDO, GRIS, GRIS_CLARO, MARCA, NEGRO, Encabezado, limpio, marca, portada,
+    AZUL_NOCHE, FONDO, GRIS, GRIS_CLARO, MARCA, NEGRO, Encabezado, enlace_web, limpio, marca, portada,
 )
 
 ROJO = (190, 48, 48)
@@ -259,6 +259,7 @@ def generar(tipo: str, d: Datos, enc: Encabezado) -> bytes:
             self.set_font("Helvetica", "", 6.5)
             self.set_text_color(*GRIS)
             self.cell(30, 5, limpio(f"{self.page_no()} / {{nb}}"), align="R")
+            enlace_web(self)
 
     pdf = Informe(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(False)

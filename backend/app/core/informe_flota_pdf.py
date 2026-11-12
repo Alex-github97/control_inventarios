@@ -21,7 +21,7 @@ from typing import Dict, List, Optional
 from app.core.neumaticos_flota import VehiculoFlota
 from app.core.neumaticos_novedades import TIPOS_NOVEDAD, LlantaInsp, Novedad, Sugerencia, Umbrales
 from app.core.pdf_marca import (  # noqa: F401 — Encabezado y limpio se siguen importando desde aquí
-    AZUL_NOCHE, FONDO, GRIS, GRIS_CLARO, MARCA, NEGRO, Encabezado, limpio, marca as _marca,
+    AZUL_NOCHE, FONDO, GRIS, GRIS_CLARO, MARCA, NEGRO, Encabezado, limpio, marca as _marca, enlace_web,
     medidas_logo as _medidas_logo, portada,
 )
 
@@ -154,6 +154,7 @@ def generar(flota: List[VehiculoFlota], nov: Dict[int, List[Novedad]], sug: Dict
             self.set_xy(-40, self.h - 10)
             self.set_font("Helvetica", "", 7)
             self.cell(28, 5, limpio(f"Página {self.page_no()} de {{nb}}"), align="R")
+            enlace_web(self)
 
     pdf = Informe(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(False)

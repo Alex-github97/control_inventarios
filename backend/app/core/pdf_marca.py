@@ -41,14 +41,36 @@ class Encabezado:
     logo: Optional[str] = None   # ruta local de una imagen
 
 
+URL_WEB = "https://tittanware.com"
+
+
 def marca(pdf, tam, color, w=0, alinear="L", alto=None):
     """El logotipo de TittanWare: Helvetica en versales con espaciado amplio,
-    la misma lectura que el logotipo tipográfico de la aplicación."""
+    la misma lectura que el logotipo tipográfico de la aplicación. Enlaza a la
+    web de TittanWare."""
     pdf.set_font("Helvetica", "B", tam)
     pdf.set_text_color(*color)
     pdf.set_char_spacing(tam * 0.22)
-    pdf.cell(w, alto or tam * 0.45, "TITTANWARE", align=alinear)
+    pdf.cell(w, alto or tam * 0.45, "TITTANWARE", align=alinear, link=URL_WEB)
     pdf.set_char_spacing(0)
+
+
+def enlace_web(pdf, color=None, tam=6.5, texto="tittanware.com"):
+    """«tittanware.com», con enlace, centrado en el borde inferior de la página.
+
+    Todos los PDF de la plataforma lo llevan en cada hoja. Va en los últimos
+    5 mm, por debajo del pie de cada informe, y deja el cursor donde estaba
+    para no mover lo que se esté escribiendo."""
+    x, y = pdf.get_x(), pdf.get_y()
+    corte, margen = pdf.auto_page_break, pdf.b_margin
+    pdf.set_auto_page_break(False)
+    pdf.set_font("Helvetica", "", tam)
+    pdf.set_text_color(*(color or GRIS))
+    pdf.set_char_spacing(0)
+    pdf.set_xy(0, pdf.h - 5.6)
+    pdf.cell(pdf.w, 3.6, texto, align="C", link=URL_WEB)
+    pdf.set_auto_page_break(corte, margen)
+    pdf.set_xy(x, y)
 
 
 def medidas_logo(ruta: str, ancho_max: float, alto_max: float):
@@ -134,3 +156,7 @@ def portada(pdf, enc: Encabezado, titulo: str, descripcion: str, cifras: List[st
     pdf.set_xy(W - M - 110, H - alto + 15.5)
     pdf.cell(110, 3, limpio("TECNOLOGÍA QUE FORTALECE · SOLUCIONES QUE TRASCIENDEN"), align="R")
     pdf.set_char_spacing(0)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(203, 213, 225)
+    pdf.set_xy(W - M - 60, H - alto + 19.5)
+    pdf.cell(60, 3.5, "tittanware.com", align="R", link=URL_WEB)

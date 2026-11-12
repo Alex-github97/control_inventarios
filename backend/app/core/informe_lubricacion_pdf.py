@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from app.core.pdf_marca import (
-    AZUL_NOCHE, FONDO, GRIS, GRIS_CLARO, MARCA, MESES, NEGRO, Encabezado, limpio, marca, medidas_logo,
+    AZUL_NOCHE, FONDO, GRIS, GRIS_CLARO, MARCA, MESES, NEGRO, Encabezado, enlace_web, limpio, marca, medidas_logo,
     portada,
 )
 
@@ -196,6 +196,7 @@ def _pie(pdf, M: float, fuente: str):
     pdf.set_xy(pdf.w - M - 30, pdf.h - 10.5)
     pdf.set_font("Helvetica", "", 6.5)
     pdf.cell(30, 5, limpio(f"{pdf.page_no()} / {{nb}}"), align="R")
+    enlace_web(pdf)
 
 
 def _firma(pdf, x: float, y: float, w: float, asesor: Asesor, cuando: datetime) -> float:

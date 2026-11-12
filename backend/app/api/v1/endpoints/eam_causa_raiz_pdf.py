@@ -58,7 +58,9 @@ def construir(
 ) -> BytesIO:
     from fpdf import FPDF
 
+    from app.core.pdf_marca import enlace_web
     pdf = FPDF(format="A4", unit="mm")
+    pdf.footer = lambda: enlace_web(pdf, texto="Generado con TittanWare · tittanware.com")
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.set_margins(16, 16, 16)
     pdf.add_page()
