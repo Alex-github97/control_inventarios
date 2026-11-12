@@ -27,7 +27,7 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, func, and_, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,6 +90,8 @@ class ProductoIn(BaseModel):
     grado_sae: Optional[str] = None
     grado_iso: Optional[str] = None
     base: Optional[str] = None
+    tbn_nuevo: Optional[float] = Field(None, ge=0, le=100)
+    visc100_nuevo: Optional[float] = Field(None, gt=0, le=1000)
     activo: bool = True
 
 

@@ -22,6 +22,7 @@ export interface Producto {
   id: number; marca_id: number; nombre: string; marca?: string | null
   familia?: string | null; grado_sae?: string | null
   grado_iso?: string | null; base?: string | null; activo: boolean
+  tbn_nuevo?: number | null; visc100_nuevo?: number | null
 }
 
 export interface Aplicacion {

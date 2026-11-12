@@ -60,7 +60,8 @@ FUENTES
   ASTM D8184   índice de partículas ferrosas
   ISO 4406     código de limpieza por conteo de partículas
   SAE J300     clasificación de viscosidad de aceites de motor
-  Tormos, B.   «Análisis de aceite usado en motores diésel» (UPV / Reverté)
+  Tormos, B.   «Diagnóstico de motores diésel mediante el análisis del aceite
+               usado», CMT-UPV / Reverté, 2005
   ICML / Noria cuerpo de práctica de análisis de lubricantes en servicio
 """
 from math import sqrt
@@ -173,11 +174,18 @@ FUENTES: Dict[str, Dict[str, str]] = {
                   "del grado cargado, sin tener que medirlo.",
     },
     "Tormos": {
-        "titulo": "Tormos, B. — «Análisis de aceite usado en motores diésel», "
-                  "Universitat Politècnica de València / Reverté",
-        "define": "Referencia de motor diésel: criterios de contaminación por "
-                  "agua y combustible, agotamiento de la reserva alcalina, y "
-                  "el peso de la tasa de desgaste sobre el valor absoluto.",
+        "titulo": "Tormos, B. — «Diagnóstico de motores diésel mediante el "
+                  "análisis del aceite usado», CMT Motores Térmicos, "
+                  "Universitat Politècnica de València / Reverté, 2005",
+        "define": "Referencia de motor diésel. Compila los límites de los "
+                  "fabricantes (MAN, CAT, Cummins, Detroit, MTU) junto al "
+                  "criterio propio del grupo CMT-UPV (Macián): contaminantes "
+                  "con dos límites fijos (alerta y alarma), degradación "
+                  "—viscosidad, TBN, TAN— siempre relativa al aceite nuevo, y "
+                  "desgaste por tendencia con alarmas en los percentiles 90 y "
+                  "96 de la población. Recoge además el árbol de diagnóstico "
+                  "del silicio de Blevins y la relación sodio/boro como "
+                  "trazador del refrigerante.",
     },
     "ICML": {
         "titulo": "International Council for Machinery Lubrication — cuerpo de "
@@ -231,37 +239,49 @@ LIMITES_MOTOR: Dict[str, Dict[str, Any]] = {
                   "aceite, camisas. Cambiar la carga después de cerrarla.",
     },
     "agua": {
-        "precaucion": 0.1, "condena": 0.2, "direccion": "ALTO",
+        "precaucion": 0.1, "condena": 0.25, "direccion": "ALTO",
         "metodo": "ASTM D6304", "criterio": "Tormos", "naturaleza": "REFERENCIA",
-        "porque": "Por encima de 0,1 % el agua ya hidroliza los aditivos y "
-                  "arrastra los detergentes; por encima de 0,2 % desplaza la "
-                  "película lubricante y produce corrosión y desgaste "
-                  "adhesivo. El agua libre es mucho peor que la emulsionada.",
+        "porque": "Tormos, tabla 5.12: el criterio CMT-UPV para diésel de "
+                  "automoción es 0,25 %, en medio de los fabricantes (Cummins "
+                  "y MTU 0,2 %, CAT 0,25 %, MAN y Detroit 0,3 %). El 0,1 % es "
+                  "donde el ensayo de crepitación ya da positivo y el agua "
+                  "empieza a hidrolizar aditivos. Aviso del libro: en un "
+                  "cárter caliente el agua casi nunca se encuentra porque se "
+                  "evapora; por eso la fuga de refrigerante se busca también "
+                  "por sus trazadores (sodio frente a boro) y no solo por el "
+                  "agua.",
         "accion": "Determinar el origen —condensación por operación fría, "
                   "refrigerante, o lavado— antes de cambiar la carga: si es "
                   "refrigerante, cambiar el aceite no resuelve nada.",
     },
     "combustible": {
-        "precaucion": 2.5, "condena": 5.0, "direccion": "ALTO",
+        "precaucion": 2.5, "condena": 4.0, "direccion": "ALTO",
         "metodo": "ASTM D7593", "criterio": "Tormos", "naturaleza": "REFERENCIA",
-        "porque": "El combustible baja la viscosidad y con ella el espesor de "
-                  "película. Cerca del 5 % la caída de viscosidad ya es "
-                  "suficiente para que el régimen pase de hidrodinámico a "
-                  "mixto en los cojinetes. Es el límite de condena que usan "
-                  "los fabricantes de motor.",
+        "porque": "Tormos, tabla 5.12: el criterio CMT-UPV es 4 %; los "
+                  "fabricantes van de 2,5 % (Detroit) a 5 % (MAN, CAT, "
+                  "Cummins), y el libro advierte que por encima de 5 % el "
+                  "problema es seguro. El combustible baja la viscosidad y el "
+                  "espesor de película, diluye los aditivos —la causa más "
+                  "frecuente de un TBN que cae antes de tiempo— y baja el "
+                  "punto de inflamación: por debajo de 180 °C hay riesgo en "
+                  "el cárter.",
         "accion": "Revisar inyección, y descartar ralentí prolongado y "
                   "regeneraciones incompletas del filtro de partículas. "
                   "Confirmar con la viscosidad: si el combustible sube y la "
                   "viscosidad no baja, sospechar del ensayo.",
     },
     "hollin": {
-        "precaucion": 3.0, "condena": 5.0, "direccion": "ALTO",
-        "metodo": "ASTM D7844", "criterio": "ICML", "naturaleza": "REFERENCIA",
-        "porque": "El hollín en sí no es abrasivo mientras el dispersante lo "
-                  "mantenga en suspensión. El problema aparece cuando "
-                  "aglomera: sube la viscosidad, tapa el filtro y el hollín "
-                  "aglomerado sí desgasta el tren de válvulas. Un motor con "
-                  "EGR tolera más hollín que uno sin recirculación.",
+        "precaucion": 2.5, "condena": 3.0, "direccion": "ALTO",
+        "metodo": "ASTM D7844", "criterio": "Tormos", "naturaleza": "REFERENCIA",
+        "porque": "Tormos, tabla 5.12: MTU fija 2,5 % y el criterio CMT-UPV y "
+                  "Thibault 3 %. El libro muestra por qué: en el ensayo Mack "
+                  "T-9 el desgaste de la camisa crece casi lineal con el "
+                  "hollín hasta el 4 %, y con 5,5 % la viscosidad ya sube un "
+                  "10 %. El límite condenatorio real es el momento en que el "
+                  "hollín deja de subir y cae de golpe: el dispersante se "
+                  "agotó y empieza a aglomerar. Los motores con EGR generan "
+                  "más hollín; si la flota es de esa tecnología, el límite se "
+                  "ajusta en la configuración con su motivo.",
         "accion": "Revisar filtro de aire, inyección y tiempos. Si el aceite "
                   "es de bajo SAPS y el hollín es alto, verificar que el "
                   "producto cargado corresponde al motor.",
@@ -269,12 +289,15 @@ LIMITES_MOTOR: Dict[str, Dict[str, Any]] = {
     "tbn": {
         "precaucion": None, "condena": 2.0, "direccion": "BAJO",
         "metodo": "ASTM D4739", "criterio": "Tormos", "naturaleza": "REFERENCIA",
-        "porque": "La reserva alcalina es lo que neutraliza los ácidos de la "
-                  "combustión. El criterio de precaución no es un número "
-                  "fijo sino la mitad del TBN del aceite nuevo; el de "
-                  "condena, 2,0 mgKOH/g, es donde el aceite deja de "
-                  "neutralizar. Si se mide por D2896 en vez de D4739 el valor "
-                  "sale más alto y el umbral no es comparable.",
+        "porque": "Tormos (tablas 4.11 y 7.3) juzga el TBN contra el del "
+                  "aceite nuevo: alarma al perder el 50 % (CMT-UPV, MAN, MTU, "
+                  "Cummins) y alerta al quedar en el 60 % (Sulzer). Cuando el "
+                  "producto tiene cargado su TBN nuevo se usa ese criterio; "
+                  "sin él queda este mínimo absoluto de 2,0 mgKOH/g "
+                  "(Cummins), que el propio libro considera casi inalcanzable "
+                  "con los combustibles limpios actuales. Si se mide por "
+                  "D2896 en vez de D4739 el valor sale más alto y el umbral "
+                  "no es comparable.",
         "accion": "Acortar el intervalo. Si se repite en toda una familia, "
                   "revisar el azufre del combustible y el grado del aceite: "
                   "un TBN que se agota antes de tiempo suele ser combustible, "
@@ -292,20 +315,21 @@ LIMITES_MOTOR: Dict[str, Dict[str, Any]] = {
                   "oxidación, sospechar contaminación con un ácido externo.",
     },
     "oxidacion": {
-        "precaucion": 20.0, "condena": 30.0, "direccion": "ALTO",
-        "metodo": "ASTM E2412", "criterio": "ICML", "naturaleza": "REFERENCIA",
-        "porque": "E2412 es una norma de tendencia: el número solo tiene "
-                  "sentido contra la línea base del aceite nuevo y del mismo "
-                  "equipo. Los valores de 20 y 30 Abs/cm son la práctica "
-                  "corriente de los laboratorios para aceite de motor, no un "
-                  "límite normalizado.",
+        "precaucion": 20.0, "condena": 25.0, "direccion": "ALTO",
+        "metodo": "ASTM E2412", "criterio": "Tormos", "naturaleza": "REFERENCIA",
+        "porque": "Tormos, tablas 4.11 y 4.12: MTU y Thibault fijan 25 Abs/cm "
+                  "en diésel de automoción; en motores a gas el criterio "
+                  "CMT-UPV, Jenbacher y MTU es 20. E2412 es una norma de "
+                  "tendencia: el número solo tiene sentido contra la línea "
+                  "base del aceite nuevo y del mismo equipo.",
         "accion": "Revisar temperatura de operación y el intervalo. La "
                   "oxidación alta anticipa subida de viscosidad y de TAN.",
     },
     "nitracion": {
-        "precaucion": 20.0, "condena": 30.0, "direccion": "ALTO",
-        "metodo": "ASTM E2412", "criterio": "ICML", "naturaleza": "REFERENCIA",
-        "porque": "La nitración viene del paso de gases de combustión al "
+        "precaucion": 20.0, "condena": 25.0, "direccion": "ALTO",
+        "metodo": "ASTM E2412", "criterio": "Tormos", "naturaleza": "REFERENCIA",
+        "porque": "Tormos, tablas 4.11 y 4.12: MTU 25 Abs/cm en automoción; "
+                  "20 en motores a gas. La nitración viene del paso de gases de combustión al "
                   "cárter. Es la señal de blow-by por anillos o de exceso de "
                   "ralentí, y en motores a gas es el parámetro dominante.",
         "accion": "Prueba de blow-by. Revisar el sistema de ventilación del "
@@ -322,9 +346,14 @@ LIMITES_MOTOR: Dict[str, Dict[str, Any]] = {
                   "alto.",
     },
     "si": {
-        "precaucion": 20.0, "condena": 30.0, "direccion": "ALTO",
-        "metodo": "ASTM D5185", "criterio": "ICML", "naturaleza": "REFERENCIA",
-        "porque": "El silicio es sílice: polvo. Es el contaminante más "
+        "precaucion": 15.0, "condena": 20.0, "direccion": "ALTO",
+        "metodo": "ASTM D5185", "criterio": "Tormos", "naturaleza": "REFERENCIA",
+        "porque": "Tormos, tablas 5.12 y 6.1: Cummins y MTU 15 ppm, Thibault "
+                  "20, CAT 10. El libro prefiere juzgar el silicio por "
+                  "tendencia —un salto brusco es la señal—, porque en su "
+                  "flota la mitad central de las muestras está entre 3 y 6 "
+                  "ppm y el aceite nuevo ya trae unas 3. "
+                  "El silicio es sílice: polvo. Es el contaminante más "
                   "destructivo del motor porque su dureza está justo en el "
                   "rango que raya camisas y anillos. Pero el silicio también "
                   "puede venir de un antiespumante o de un sellador reciente, "
@@ -336,8 +365,9 @@ LIMITES_MOTOR: Dict[str, Dict[str, Any]] = {
     },
     "na": {
         "precaucion": 20.0, "condena": 40.0, "direccion": "ALTO",
-        "metodo": "ASTM D5185", "criterio": "ICML", "naturaleza": "REFERENCIA",
-        "porque": "El sodio es el trazador del refrigerante, pero también es "
+        "metodo": "ASTM D5185", "criterio": "Tormos", "naturaleza": "REFERENCIA",
+        "porque": "Tormos, tabla 6.1: Cummins 20 ppm, CAT 40. "
+                  "El sodio es el trazador del refrigerante, pero también es "
                   "aditivo de algunos aceites y viene del ambiente marino. "
                   "Solo confirma refrigerante cuando lo acompaña el potasio, "
                   "el boro o el glicol.",
@@ -480,7 +510,7 @@ UMBRAL_CONFIRMACION = 0.4
 
 MINIMO_POBLACION_D7720 = 30
 PERCENTIL_PRECAUCION = 90.0
-PERCENTIL_CONDENA = 97.5
+PERCENTIL_CONDENA = 96.0
 
 GRUPO_DESGASTE = {"fe", "cr", "pb", "cu", "sn", "al", "ni", "mo"}
 
@@ -688,6 +718,29 @@ REGLAS: List[Dict[str, Any]] = [
                   "revisar enfriador de aceite y empaque de culata.",
     },
     {
+        "codigo": "REFRIGERANTE_NA_B",
+        "nombre": "Refrigerante: sodio por encima del boro",
+        "exige": ["na"],
+        "requiere_relacion_na_b": True,
+        "severidad": "CRITICO",
+        "urgencia": 91,
+        "fuentes": ["Tormos", "ASTM D5185"],
+        "criterio": "Sodio alto y relación sodio/boro invertida (Tormos, "
+                    "5.3.3). En un aceite sano el boro, que es aditivo, está "
+                    "unas 100 veces por encima del sodio; con refrigerante la "
+                    "relación se invierte a unos 4 de sodio por 1 de boro "
+                    "(Fitch da 5:1).",
+        "lectura": "Es la firma del refrigerante aunque no aparezca agua: en "
+                   "el cárter caliente el agua se evapora, pero el sodio de "
+                   "los inhibidores del refrigerante se queda. Tormos lo "
+                   "propone justamente porque la medida de agua casi nunca "
+                   "detecta estas fugas.",
+        "accion": "Pedir glicol por ASTM D2982 para confirmar y revisar "
+                  "enfriador de aceite, empaque de culata y camisas. Si el "
+                  "aceite de esta flota no lleva boro, la regla no aplica: "
+                  "conviene confirmarlo con el aceite nuevo.",
+    },
+    {
         "codigo": "DESGASTE_SEVERO_PQ",
         "nombre": "Desgaste severo con partícula grande",
         "exige": ["pq"],
@@ -705,17 +758,43 @@ REGLAS: List[Dict[str, Any]] = [
                   "la próxima muestra: este modo de falla progresa rápido.",
     },
     {
+        "codigo": "PISTON_RECALENTADO",
+        "nombre": "Aluminio del pistón: pistón recalentado",
+        "exige": ["si", "al"],
+        "tambien": ["fe", "cr"],
+        "minimo_tambien": 1,
+        "requiere_al_si_piston": True,
+        "severidad": "ACCION_INMEDIATA",
+        "urgencia": 95,
+        "fuentes": ["Tormos", "ASTM D5185"],
+        "criterio": "Silicio, aluminio y hierro o cromo altos con la relación "
+                    "aluminio/silicio cercana a 1:1 (árbol de Blevins, Tormos "
+                    "fig. 5.13). El polvo trae mucho más silicio que "
+                    "aluminio; tanto aluminio como silicio es el pistón, que "
+                    "es una aleación de aluminio con silicio.",
+        "lectura": "El pistón se está fundiendo o rozando contra la camisa "
+                   "(«piston torching»): sobrecalentamiento, inyección que "
+                   "gotea o falta de refrigeración. Es una falla en curso y "
+                   "progresa rápido.",
+        "accion": "Sacar el equipo de servicio y revisar inyectores, "
+                  "temperatura de operación y refrigeración. Boroscopia de "
+                  "los cilindros antes de volver a arrancar.",
+    },
+    {
         "codigo": "POLVO_CON_DESGASTE",
         "nombre": "Ingreso de polvo con desgaste activo",
         "exige": ["si"],
-        "tambien": ["fe", "cr", "al"],
+        "tambien": ["fe", "cr"],
         "minimo_tambien": 1,
+        "requiere_relacion_si_al": True,
         "severidad": "CRITICO",
         "urgencia": 90,
         "fuentes": ["ASTM D5185", "ICML", "Tormos"],
-        "criterio": "Silicio alto por ASTM D5185 junto con metales de "
-                    "desgaste sobre el límite estadístico de la flota "
-                    "(ASTM D7720).",
+        "criterio": "Silicio alto con aluminio acompañando y hierro o cromo "
+                    "sobre el límite de la flota: es la rama «entrada de "
+                    "suciedad exterior» del árbol de Blevins (Tormos, fig. "
+                    "5.13). El hierro es camisa y el cromo los segmentos "
+                    "(tabla 6.11).",
         "lectura": "El polvo ya no solo está entrando: está desgastando. La "
                    "sílice tiene la dureza justa para rayar camisas y "
                    "anillos, y el desgaste que produce no se detiene al "
@@ -724,6 +803,27 @@ REGLAS: List[Dict[str, Any]] = [
                   "filtro, abrazaderas, mangueras— y acortar el intervalo "
                   "hasta cerrarla. Cambiar la carga sin cerrar la entrada es "
                   "gasto perdido.",
+    },
+    {
+        "codigo": "DESGASTE_PARTE_ALTA",
+        "nombre": "Desgaste de la parte alta del cilindro",
+        "exige": ["si"],
+        "tambien": ["fe", "cr", "sn"],
+        "minimo_tambien": 2,
+        "requiere_si_sin_aluminio": True,
+        "severidad": "CRITICO",
+        "urgencia": 87,
+        "fuentes": ["Tormos", "ASTM D5185"],
+        "criterio": "Silicio alto SIN aluminio, con hierro, cromo y estaño "
+                    "subiendo: rama «desgaste parte alta» del árbol de "
+                    "Blevins (Tormos, fig. 5.13).",
+        "lectura": "Segmentos (cromo), camisa (hierro) y el recubrimiento del "
+                   "pistón (estaño) se están desgastando en la zona de los "
+                   "segmentos de fuego, que es la peor lubricada del motor. "
+                   "Sin aluminio acompañando, el silicio no es polvo de la "
+                   "admisión.",
+        "accion": "Prueba de compresión y de blow-by. Revisar inyección y "
+                  "temperatura de operación antes de desarmar.",
     },
     {
         "codigo": "COJINETES",
@@ -782,15 +882,34 @@ REGLAS: List[Dict[str, Any]] = [
                   "de aceite antes de desarmar.",
     },
     {
+        "codigo": "TBN_POR_DILUCION",
+        "nombre": "Reserva alcalina perdida por dilución",
+        "exige": ["combustible", "tbn"],
+        "severidad": "CRITICO",
+        "urgencia": 86,
+        "fuentes": ["Tormos", "ASTM D7593", "ASTM D4739"],
+        "criterio": "Combustible y TBN fuera a la vez. Tormos (5.4) encontró "
+                    "que en la mayoría de los casos el TBN que cae antes de "
+                    "tiempo no se gastó neutralizando ácidos: lo diluyó el "
+                    "combustible.",
+        "lectura": "El aceite no está agotado por trabajo: está diluido. El "
+                   "combustible baja la concentración de aditivos —y con "
+                   "ellos el TBN— y también la viscosidad. Acortar el "
+                   "intervalo sin cerrar la dilución no resuelve nada.",
+        "accion": "Revisar inyectores (goteo, sellos), bomba y líneas de "
+                  "combustible, y el ralentí prolongado. Cambiar la carga "
+                  "después de corregirlo.",
+    },
+    {
         "codigo": "DILUCION",
         "nombre": "Dilución por combustible",
         "exige": ["combustible"],
         "severidad": "CRITICO",
         "urgencia": 86,
         "fuentes": ["ASTM D7593", "ASTM D445", "Tormos"],
-        "criterio": "Combustible por ASTM D7593 sobre 5 %, o sobre 2,5 % con "
-                    "la viscosidad cayendo más del 20 % respecto del grado "
-                    "SAE cargado.",
+        "criterio": "Combustible por ASTM D7593 sobre 4 % (criterio CMT-UPV, "
+                    "Tormos tabla 5.12), o sobre 2,5 % como alerta. Por encima "
+                    "de 5 % el libro lo da por problema seguro.",
         "lectura": "La viscosidad cae y con ella el espesor de película. En "
                    "los cojinetes el régimen pasa de hidrodinámico a mixto, "
                    "que es donde aparece el desgaste. El resto de la muestra "
@@ -806,8 +925,9 @@ REGLAS: List[Dict[str, Any]] = [
         "severidad": "CRITICO",
         "urgencia": 88,
         "fuentes": ["ASTM D6304", "Tormos"],
-        "criterio": "Agua por ASTM D6304 sobre 0,2 % en motor. En hidráulica "
-                    "el criterio es veinte veces más exigente.",
+        "criterio": "Agua por ASTM D6304 sobre 0,25 % en motor (criterio "
+                    "CMT-UPV, Tormos tabla 5.12). En hidráulica el criterio es "
+                    "mucho más exigente.",
         "lectura": "El agua desplaza la película lubricante, hidroliza los "
                    "aditivos y corroe. En un motor que opera frío suele ser "
                    "condensación; si viene con sodio o potasio, es "
@@ -817,39 +937,111 @@ REGLAS: List[Dict[str, Any]] = [
                   "por lavado.",
     },
     {
-        "codigo": "POLVO_CONFIRMADO",
-        "nombre": "Ingreso de polvo",
+        "codigo": "SUCIEDAD_ACEITE_FILTRO",
+        "nombre": "Aceite nuevo sucio o filtro roto",
         "exige": ["si"],
+        "tambien": ["pb", "sn", "cu"],
+        "minimo_tambien": 1,
+        "prohibe": ["fe", "cr"],
+        "requiere_relacion_si_al": True,
+        "severidad": "MARGINAL",
+        "urgencia": 64,
+        "fuentes": ["Tormos", "ASTM D5185"],
+        "criterio": "Silicio y aluminio altos, sin hierro ni cromo, pero con "
+                    "plomo, estaño o cobre: rama «aceite nuevo sucio o filtro "
+                    "roto» del árbol de Blevins (Tormos, fig. 5.13).",
+        "lectura": "La suciedad no está entrando por la admisión —no hay "
+                   "desgaste de camisa ni de segmentos—: llega con el aceite "
+                   "o pasa por un filtro que no retiene, y ya alcanza a los "
+                   "cojinetes.",
+        "accion": "Revisar el filtro de aceite (sello, bypass, ruptura) y el "
+                  "almacenamiento del aceite nuevo: tanques, bidones y "
+                  "trasvases. Analizar una muestra del aceite nuevo.",
+    },
+    {
+        "codigo": "POLVO_CONFIRMADO",
+        "nombre": "Silicio con aluminio sin desgaste",
+        "exige": ["si"],
+        "prohibe": ["fe", "cr", "pb", "sn", "cu"],
         "requiere_relacion_si_al": True,
         "severidad": "MARGINAL",
         "urgencia": 62,
-        "fuentes": ["ASTM D5185", "ICML"],
-        "criterio": "Silicio alto con aluminio subiendo en proporción. El "
-                    "polvo de carretera es aluminosilicato: lleva los dos.",
-        "lectura": "Está entrando polvo, pero los metales de desgaste "
-                   "todavía están en el nivel de la flota. Se puede actuar "
-                   "sobre la causa antes de que haya daño.",
-        "accion": "Revisar el lado de admisión y el procedimiento de "
-                  "llenado. Confirmar en la próxima muestra.",
+        "fuentes": ["Tormos", "ASTM D5185", "ICML"],
+        "criterio": "Silicio alto con aluminio en proporción y ningún metal "
+                    "de desgaste fuera: rama «entrada de suciedad en la toma "
+                    "de muestra» del árbol de Blevins (Tormos, fig. 5.13). El "
+                    "polvo es aluminosilicato: lleva los dos.",
+        "lectura": "Hay polvo en la muestra pero el motor no lo acusa: o "
+                   "entró al tomar la muestra —recipiente abierto, tapón de "
+                   "drenaje, válvula sucia— o es un ingreso que recién "
+                   "empieza. Antes de intervenir conviene descartar lo "
+                   "primero.",
+        "accion": "Repetir la muestra con método controlado (válvula de "
+                  "muestreo, frasco limpio) y revisar el lado de admisión. "
+                  "Si se confirma, actuar sobre la entrada antes de que "
+                  "aparezca desgaste.",
+    },
+    {
+        "codigo": "SILICIO_REFRIGERANTE",
+        "nombre": "Silicio del refrigerante",
+        "exige": ["si"],
+        "tambien": ["na", "cu"],
+        "minimo_tambien": 1,
+        "requiere_si_sin_aluminio": True,
+        "silicio_desde_constante": True,
+        "severidad": "CRITICO",
+        "urgencia": 80,
+        "fuentes": ["Tormos", "ASTM D5185"],
+        "criterio": "Silicio alto sin aluminio, por encima del umbral de "
+                    "antiespumante, con sodio o cobre: rama «fuga interna de "
+                    "refrigerante» del árbol de Blevins (Tormos, fig. 5.13).",
+        "lectura": "Los inhibidores del refrigerante llevan silicatos y "
+                   "boratos de sodio; el cobre sale del enfriador que el "
+                   "refrigerante ataca. Juntos, con el silicio alto, apuntan "
+                   "a una fuga interna.",
+        "accion": "Pedir glicol por ASTM D2982 y revisar enfriador de aceite, "
+                  "empaque de culata y camisas.",
     },
     {
         "codigo": "SILICIO_SIN_ALUMINIO",
-        "nombre": "Silicio alto que probablemente no es polvo",
+        "nombre": "Silicio de antiespumante",
         "exige": ["si"],
+        "requiere_si_sin_aluminio": True,
+        "silicio_hasta_constante": True,
         "severidad": "MARGINAL",
         "urgencia": 35,
-        "fuentes": ["ASTM D5185", "ICML"],
-        "criterio": "Silicio alto SIN aluminio acompañante. El polvo de "
-                    "carretera es aluminosilicato; el silicio solo apunta a "
-                    "otra fuente.",
-        "lectura": "El silicio sube pero el aluminio no. Eso no encaja con "
-                   "polvo: encaja con antiespumante del aceite nuevo, con "
-                   "sellador de silicona de un armado reciente, o con "
-                   "residuo de un aditivo. Tratarlo como polvo manda a "
-                   "revisar una admisión que está bien.",
-        "accion": "Verificar si hubo intervención reciente con sellador de "
-                  "silicona y comparar contra el silicio del aceite nuevo. "
-                  "Confirmar en la próxima muestra antes de intervenir.",
+        "fuentes": ["Tormos", "ASTM D5185", "ICML"],
+        "criterio": "Silicio alto SIN aluminio y por debajo de 40 ppm: rama "
+                    "«aditivo antiespuma» del árbol de Blevins (Tormos, fig. "
+                    "5.13). El polvo es aluminosilicato; el silicio solo "
+                    "apunta a otra fuente.",
+        "lectura": "El silicio sube pero el aluminio no, y en un nivel que "
+                   "encaja con el antiespumante del aceite —Tormos midió unas "
+                   "3 ppm de silicio en aceites nuevos de varias marcas—. "
+                   "Tratarlo como polvo manda a revisar una admisión que está "
+                   "bien.",
+        "accion": "Comparar contra el silicio del aceite nuevo y confirmar en "
+                  "la próxima muestra antes de intervenir.",
+    },
+    {
+        "codigo": "SILICIO_SELLADOR",
+        "nombre": "Silicio de sellador de silicona",
+        "exige": ["si"],
+        "requiere_si_sin_aluminio": True,
+        "silicio_desde_constante": True,
+        "severidad": "MARGINAL",
+        "urgencia": 38,
+        "fuentes": ["Tormos", "ASTM D5185"],
+        "criterio": "Silicio alto SIN aluminio, por encima de 40 ppm y sin "
+                    "trazadores de refrigerante: rama «entrada de sellos de "
+                    "silicona» del árbol de Blevins (Tormos, fig. 5.13).",
+        "lectura": "Demasiado silicio para ser antiespumante y sin la firma "
+                   "del refrigerante ni del polvo: lo más probable es "
+                   "sellador de silicona de un armado reciente, que se va "
+                   "lavando con las primeras cargas.",
+        "accion": "Verificar si hubo intervención con sellador de silicona. "
+                  "Confirmar que baja en la próxima muestra; si no baja, "
+                  "pedir glicol para descartar refrigerante.",
     },
     {
         "codigo": "COBRE_SOLO",
@@ -898,8 +1090,10 @@ REGLAS: List[Dict[str, Any]] = [
         "severidad": "MARGINAL",
         "urgencia": 70,
         "fuentes": ["ASTM D4739", "Tormos"],
-        "criterio": "TBN por ASTM D4739 por debajo de 2,0 mgKOH/g, o por "
-                    "debajo de la mitad del valor del aceite nuevo.",
+        "criterio": "TBN por ASTM D4739 por debajo del 60 % del aceite nuevo "
+                    "(alerta) o del 50 % (alarma), según Tormos tablas 4.11 y "
+                    "4.13. Si el producto no tiene su TBN nuevo cargado, por "
+                    "debajo de 2,0 mgKOH/g.",
         "lectura": "Al aceite le queda poca capacidad de neutralizar. "
                    "Todavía protege, pero el margen hasta el cruce con el "
                    "TAN es corto.",
@@ -927,9 +1121,10 @@ REGLAS: List[Dict[str, Any]] = [
         "exige": ["hollin"],
         "severidad": "MARGINAL",
         "urgencia": 55,
-        "fuentes": ["ASTM D7844", "ICML"],
-        "criterio": "Hollín por FTIR (ASTM D7844) sobre 3 %; sobre 5 % es "
-                    "condena.",
+        "fuentes": ["ASTM D7844", "Tormos"],
+        "criterio": "Hollín por FTIR (ASTM D7844) sobre 2,5 % (MTU); sobre 3 % "
+                    "es condena (criterio CMT-UPV y Thibault, Tormos tabla "
+                    "5.12).",
         "lectura": "El hollín no es abrasivo mientras el dispersante lo "
                    "mantenga suspendido. El daño viene cuando aglomera: sube "
                    "la viscosidad, tapa el filtro y desgasta el tren de "
@@ -944,11 +1139,13 @@ REGLAS: List[Dict[str, Any]] = [
         "requiere_desvio_viscosidad": True,
         "severidad": "MARGINAL",
         "urgencia": 58,
-        "fuentes": ["ASTM D445", "SAE J300", "ASTM D4378"],
-        "criterio": "Desviación de más del 20 % respecto del centro de la "
-                    "banda SAE J300 del grado cargado; más del 30 % es "
-                    "condena. Es el método de desviación relativa de "
-                    "ASTM D4378.",
+        "fuentes": ["ASTM D445", "SAE J300", "ASTM D4378", "Tormos"],
+        "criterio": "Desviación de más del 20 % (CAT) respecto del aceite "
+                    "nuevo; más del 30 % es condena (criterio CMT-UPV, Tormos "
+                    "tabla 4.11). La referencia es la viscosidad del producto "
+                    "nuevo si está cargada en su ficha; si no, el centro de "
+                    "la banda SAE J300 del grado. Es el método de desviación "
+                    "relativa de ASTM D4378.",
         "lectura": "Bajar es dilución —combustible o un aceite más ligero—. "
                    "Subir es oxidación, hollín aglomerado o un grado "
                    "equivocado. Son averías distintas y la dirección las "
@@ -1056,6 +1253,22 @@ REGLA_SIN_HALLAZGO = {
 # polvo real de silicio de otra fuente.
 RELACION_SI_AL_MINIMA = 0.15   # Al/Si por debajo de esto, probablemente no es polvo
 
+# Árbol de Blevins (Tormos, fig. 5.13). Con silicio, aluminio, hierro y cromo
+# altos, una relación Al:Si cercana a 1:1 no es polvo —el polvo trae mucho más
+# silicio que aluminio—: es aluminio del propio pistón, que se está fundiendo
+# («piston torching»).
+RELACION_AL_SI_PISTON = (0.8, 1.25)
+# Sin aluminio, el silicio por debajo de 40 ppm se lee como antiespumante; por
+# encima, como sellador de silicona o silicato del refrigerante.
+SILICIO_ANTIESPUMANTE_MAX = 40.0
+# Tormos (5.3.3): en un aceite sano el boro es unas 100 veces el sodio; con
+# refrigerante la relación se invierte (≈ 4:1 de sodio sobre boro; Fitch, 5:1).
+RELACION_NA_B_REFRIGERANTE = 1.0
+# Tormos (tablas 4.11 y 4.13): TBN en alerta al 60 % del aceite nuevo (Sulzer)
+# y en alarma al 50 % (CMT-UPV, MAN, MTU, Cummins).
+TBN_PRECAUCION_PCT = 60.0
+TBN_CONDENA_PCT = 50.0
+
 
 def _estado_contra(valor: float, limite: Dict[str, Any]) -> Optional[str]:
     """Compara un valor con un límite y devuelve el estado, o `None`."""
@@ -1088,8 +1301,15 @@ def evaluar_muestra(
     meta_iso: Optional[str] = None,
     iso_medido: Optional[str] = None,
     criterio: Optional["Criterio"] = None,
+    tbn_nuevo: Optional[float] = None,
+    visc100_nuevo: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Evalúa una muestra contra los límites de norma y su propia tendencia.
+
+    `tbn_nuevo` y `visc100_nuevo` son los del producto cargado (su ficha
+    técnica). Tormos juzga la degradación siempre contra el aceite nuevo: con
+    ellos el TBN y la viscosidad se evalúan en relativo; sin ellos, el TBN cae
+    al mínimo absoluto y la viscosidad a la banda SAE J300 del grado.
 
     Devuelve, por parámetro, el estado y el límite que lo disparó —con su
     fuente—, más la evaluación de tendencia. No decide el diagnóstico: eso lo
@@ -1140,11 +1360,45 @@ def evaluar_muestra(
             "tendencia": tendencia,
         }
 
-    # ── Viscosidad contra la banda SAE J300 del grado cargado ────────────────
+    # ── TBN relativo al aceite nuevo (Tormos, tablas 4.11 y 7.3) ─────────────
+    # Con el TBN del producto nuevo cargado, el juicio es por porcentaje de
+    # reserva que queda, no contra un mínimo absoluto: el libro muestra que con
+    # combustibles limpios el aceite rara vez llega a 1-2 mgKOH/g en el
+    # intervalo normal, así que un tope absoluto casi nunca avisa.
+    tbn_medido = valores.get("tbn")
+    if tbn_nuevo and tbn_nuevo > 0 and tbn_medido is not None:
+        p_prec = criterio.constante("tbn_precaucion_pct") / 100
+        p_cond = criterio.constante("tbn_condena_pct") / 100
+        queda = tbn_medido / tbn_nuevo
+        estado_tbn = ("CONDENA" if queda <= p_cond
+                      else "PRECAUCION" if queda <= p_prec else None)
+        previo = hallazgos.get("tbn") or {}
+        if estado_tbn or previo:
+            hallazgos["tbn"] = {
+                "valor": tbn_medido, "unidad": unidades.get("tbn"),
+                "estado": estado_tbn, "tendencia": previo.get("tendencia"),
+                "limite": {
+                    "precaucion": round(tbn_nuevo * p_prec, 2),
+                    "condena": round(tbn_nuevo * p_cond, 2),
+                    "direccion": "BAJO", "metodo": "ASTM D4739",
+                    "criterio": "Tormos", "naturaleza": "REFERENCIA",
+                    "porque": f"El aceite nuevo tiene {tbn_nuevo:g} mgKOH/g y "
+                              f"le queda el {round(queda * 100)} %. Tormos "
+                              f"pone la alerta al {p_prec * 100:g} % y la "
+                              f"alarma al {p_cond * 100:g} % del valor nuevo.",
+                },
+            }
+            if not estado_tbn and not previo.get("tendencia"):
+                hallazgos.pop("tbn", None)
+
+    # ── Viscosidad contra el aceite nuevo o la banda SAE J300 ────────────────
     # Aparte porque no se juzga contra un tope sino contra el aceite que le
-    # corresponde, y esa referencia sale del grado y no de la flota.
+    # corresponde. Tormos (7.3.2) la evalúa contra el aceite nuevo; si la ficha
+    # del producto no trae su viscosidad, se usa el centro de la banda SAE J300
+    # del grado, que es lo más cercano disponible.
     desvio_visc = None
-    referencia = referencia_viscosidad_100c(grado_sae)
+    del_producto = bool(visc100_nuevo and visc100_nuevo > 0)
+    referencia = visc100_nuevo if del_producto else referencia_viscosidad_100c(grado_sae)
     medido = valores.get("visc100")
     if referencia and medido is not None:
         rel = (medido - referencia) / referencia
@@ -1158,8 +1412,9 @@ def evaluar_muestra(
             "grado": grado_sae, "desvio_pct": round(rel * 100, 1),
             "direccion": "ALTA" if rel > 0 else "BAJA",
             "estado": estado,
-            "metodo": "ASTM D445", "criterio": "SAE J300 + ASTM D4378",
-            "naturaleza": "NORMA",
+            "metodo": "ASTM D445",
+            "criterio": "Aceite nuevo + Tormos" if del_producto else "SAE J300 + ASTM D4378",
+            "naturaleza": "REFERENCIA" if del_producto else "NORMA",
         }
         if estado:
             hallazgos.setdefault("visc100", {
@@ -1169,11 +1424,18 @@ def evaluar_muestra(
                     "precaucion": round(referencia * (1 + d_prec), 2),
                     "condena": round(referencia * (1 + d_cond), 2),
                     "direccion": "DESVIO", "metodo": "ASTM D445",
-                    "criterio": "SAE J300 + ASTM D4378", "naturaleza": "NORMA",
-                    "porque": f"El grado {grado_sae} tiene su banda de "
-                              f"viscosidad a 100 °C definida en SAE J300; su "
-                              f"centro es {referencia} cSt. La desviación "
-                              f"medida es del {round(rel * 100, 1)} %.",
+                    "criterio": ("Aceite nuevo + Tormos" if del_producto
+                                 else "SAE J300 + ASTM D4378"),
+                    "naturaleza": "REFERENCIA" if del_producto else "NORMA",
+                    "porque": (f"La ficha del producto da {referencia:g} cSt a "
+                               f"100 °C para el aceite nuevo. La desviación "
+                               f"medida es del {round(rel * 100, 1)} %; Tormos "
+                               f"(tabla 4.11) alerta al 20 % y condena al 30 %."
+                               if del_producto else
+                               f"El grado {grado_sae} tiene su banda de "
+                               f"viscosidad a 100 °C definida en SAE J300; su "
+                               f"centro es {referencia} cSt. La desviación "
+                               f"medida es del {round(rel * 100, 1)} %."),
                 },
             })
 
@@ -1186,6 +1448,14 @@ def evaluar_muestra(
     relacion_si_al = None
     if si and si > 0 and al is not None:
         relacion_si_al = round(al / si, 3)
+
+    # ── Relación sodio–boro (Tormos 5.3.3) ───────────────────────────────────
+    # Solo con boro medido por encima de cero: un aceite sin boro en su
+    # formulación siempre tendría «más sodio que boro» y no diría nada.
+    na, b = valores.get("na"), valores.get("b")
+    relacion_na_b = None
+    if na is not None and b is not None and b > 0:
+        relacion_na_b = round(na / b, 3)
 
     # ── Limpieza contra la meta ISO 4406 ─────────────────────────────────────
     if meta_iso and iso_medido:
@@ -1212,6 +1482,8 @@ def evaluar_muestra(
         "desvio_viscosidad": desvio_visc,
         "cruce_tbn_tan": cruce,
         "relacion_si_al": relacion_si_al,
+        "relacion_na_b": relacion_na_b,
+        "silicio": si,
     }
 
 
@@ -1279,8 +1551,26 @@ def diagnosticar(evaluacion: Dict[str, Any],
         if regla.get("requiere_relacion_si_al"):
             if relacion is None or relacion < relacion_minima:
                 continue
-        if regla["codigo"] == "SILICIO_SIN_ALUMINIO":
+        if regla.get("requiere_si_sin_aluminio"):
             if relacion is None or relacion >= relacion_minima:
+                continue
+        # Árbol de Blevins (Tormos, fig. 5.13): aluminio y silicio cerca de
+        # 1:1 es el pistón; el antiespumante, por debajo de 40 ppm.
+        if regla.get("requiere_al_si_piston"):
+            if relacion is None or not (
+                    criterio.constante("relacion_al_si_piston_min") <= relacion
+                    <= criterio.constante("relacion_al_si_piston_max")):
+                continue
+        silicio = evaluacion.get("silicio")
+        if regla.get("silicio_hasta_constante"):
+            if silicio is None or silicio >= criterio.constante("silicio_antiespumante_max"):
+                continue
+        if regla.get("silicio_desde_constante"):
+            if silicio is None or silicio < criterio.constante("silicio_antiespumante_max"):
+                continue
+        if regla.get("requiere_relacion_na_b"):
+            rel_nab = evaluacion.get("relacion_na_b")
+            if rel_nab is None or rel_nab < criterio.constante("relacion_na_b_refrigerante"):
                 continue
         if regla.get("solo_tendencia"):
             if fuera or not con_tendencia:
@@ -1417,7 +1707,7 @@ CONSTANTES: Dict[str, Dict[str, Any]] = {
         "unidad": "percentil",
         "grupo": "Límites de la propia flota (ASTM D7720)",
         "nombre": "Percentil de precaución",
-        "fuentes": ["ASTM D7720"],
+        "fuentes": ["ASTM D7720", "Tormos"],
         "que_hace": "Por encima de este percentil de la población, un metal de "
                     "desgaste entra en precaución.",
         "efecto": "Bajarlo alarma antes y produce más avisos; subirlo deja "
@@ -1429,11 +1719,13 @@ CONSTANTES: Dict[str, Dict[str, Any]] = {
         "unidad": "percentil",
         "grupo": "Límites de la propia flota (ASTM D7720)",
         "nombre": "Percentil de condena",
-        "fuentes": ["ASTM D7720"],
+        "fuentes": ["ASTM D7720", "Tormos"],
         "que_hace": "Por encima de este percentil, el metal de desgaste se "
                     "considera condenatorio.",
         "efecto": "Tiene que quedar por encima del de precaución. Acercarlos "
-                  "borra el escalón entre «vigilar» y «actuar».",
+                  "borra el escalón entre «vigilar» y «actuar». Tormos (7.3.3) "
+                  "fija la alerta en el 90 % y la alarma en el 96 % de la "
+                  "población.",
     },
     "minimo_poblacion": {
         "valor": float(MINIMO_POBLACION_D7720), "minimo": 10.0, "maximo": 500.0,
@@ -1506,6 +1798,78 @@ CONSTANTES: Dict[str, Dict[str, Any]] = {
         "efecto": "Depende del polvo de la zona. Subirlo exige más aluminio "
                   "para dar el polvo por confirmado y manda más muestras a "
                   "«silicio que probablemente no es polvo».",
+    },
+    "relacion_al_si_piston_min": {
+        "valor": RELACION_AL_SI_PISTON[0], "minimo": 0.3, "maximo": 1.0,
+        "unidad": "Al/Si",
+        "grupo": "Lectura combinada de elementos",
+        "nombre": "Relación aluminio/silicio de pistón recalentado (desde)",
+        "fuentes": ["Tormos"],
+        "que_hace": "Con silicio, aluminio, hierro y cromo altos, una relación "
+                    "Al/Si entre este valor y el máximo se lee como aluminio "
+                    "del propio pistón (árbol de Blevins, Tormos fig. 5.13) y "
+                    "no como polvo.",
+        "efecto": "Bajarlo atribuye al pistón casos que son polvo con mucho "
+                  "aluminio; subirlo estrecha la ventana.",
+    },
+    "relacion_al_si_piston_max": {
+        "valor": RELACION_AL_SI_PISTON[1], "minimo": 1.0, "maximo": 5.0,
+        "unidad": "Al/Si",
+        "grupo": "Lectura combinada de elementos",
+        "nombre": "Relación aluminio/silicio de pistón recalentado (hasta)",
+        "fuentes": ["Tormos"],
+        "que_hace": "Límite superior de la ventana «cercana a 1:1».",
+        "efecto": "Subirlo incluye casos con mucho más aluminio que silicio.",
+    },
+    "silicio_antiespumante_max": {
+        "valor": SILICIO_ANTIESPUMANTE_MAX, "minimo": 10.0, "maximo": 200.0,
+        "unidad": "ppm",
+        "grupo": "Lectura combinada de elementos",
+        "nombre": "Silicio sin aluminio atribuible a antiespumante (hasta)",
+        "fuentes": ["Tormos"],
+        "que_hace": "Silicio alto sin aluminio y por debajo de este valor se "
+                    "lee como antiespumante del aceite; por encima, como "
+                    "sellador de silicona o silicato del refrigerante (árbol "
+                    "de Blevins, Tormos fig. 5.13).",
+        "efecto": "Subirlo atribuye al antiespumante silicio que puede venir "
+                  "de un sellador o del refrigerante.",
+    },
+    "relacion_na_b_refrigerante": {
+        "valor": RELACION_NA_B_REFRIGERANTE, "minimo": 0.2, "maximo": 10.0,
+        "unidad": "Na/B",
+        "grupo": "Lectura combinada de elementos",
+        "nombre": "Relación sodio/boro que delata refrigerante",
+        "fuentes": ["Tormos"],
+        "que_hace": "Con el sodio alto, si la relación sodio/boro llega a este "
+                    "valor se diagnostica refrigerante aunque no se haya "
+                    "medido agua ni glicol. En un aceite sano el boro es unas "
+                    "100 veces el sodio; con refrigerante se invierte "
+                    "(Tormos ≈ 4:1, Fitch 5:1).",
+        "efecto": "Subirlo exige una inversión más marcada y detecta menos "
+                  "fugas incipientes. Solo vale si el aceite lleva boro en su "
+                  "formulación: sin boro medido la regla no se aplica.",
+    },
+    "tbn_precaucion_pct": {
+        "valor": TBN_PRECAUCION_PCT, "minimo": 30.0, "maximo": 95.0,
+        "unidad": "% del nuevo",
+        "grupo": "Degradación relativa al aceite nuevo",
+        "nombre": "TBN en precaución (porcentaje del aceite nuevo)",
+        "fuentes": ["Tormos"],
+        "que_hace": "Cuando el producto tiene su TBN nuevo cargado, el TBN "
+                    "medido por debajo de este porcentaje entra en precaución.",
+        "efecto": "Subirlo avisa antes. Tormos recoge 60 % como alerta "
+                  "(Sulzer).",
+    },
+    "tbn_condena_pct": {
+        "valor": TBN_CONDENA_PCT, "minimo": 20.0, "maximo": 90.0,
+        "unidad": "% del nuevo",
+        "grupo": "Degradación relativa al aceite nuevo",
+        "nombre": "TBN en condena (porcentaje del aceite nuevo)",
+        "fuentes": ["Tormos"],
+        "que_hace": "Por debajo de este porcentaje del TBN nuevo, el aceite "
+                    "ya no protege lo suficiente.",
+        "efecto": "Tormos: alarma al perder el 50 % (CMT-UPV, MAN, MTU, "
+                  "Cummins).",
     },
     "dias_asentamiento": {
         "valor": float(DIAS_ASENTAMIENTO), "minimo": 0.0, "maximo": 365.0,

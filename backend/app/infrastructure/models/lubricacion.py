@@ -90,6 +90,11 @@ class LubeProducto(Base, TimestampMixin):
     grado_iso = Column(String(30), nullable=True)   # ISO VG 46
     # Sintético, mineral, semisintético.
     base      = Column(String(30), nullable=True)
+    # De la ficha técnica del aceite nuevo. Tormos juzga la degradación siempre
+    # contra el aceite nuevo: con estos dos el TBN y la viscosidad se evalúan
+    # en relativo en vez de contra un mínimo absoluto o una banda genérica.
+    tbn_nuevo     = Column(Float, nullable=True)   # mgKOH/g
+    visc100_nuevo = Column(Float, nullable=True)   # cSt a 100 °C
     activo    = Column(Boolean, default=True, nullable=False)
 
 

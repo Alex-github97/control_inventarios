@@ -1296,6 +1296,9 @@ async def _migrar_esquema(esquema: str) -> None:
             ("eam_mensajeria_destinatario", "telegram_usuario", "VARCHAR(80)"),
             ("eam_mensajeria_destinatario", "tipo", "VARCHAR(20) DEFAULT 'PERSONA'"),
             ("eam_mensajeria_destinatario", "telegram_titulo", "VARCHAR(160)"),
+            # Lubricación: la ficha del aceite nuevo (Tormos juzga contra ella).
+            ("eam_lube_producto", "tbn_nuevo", "DOUBLE PRECISION"),
+            ("eam_lube_producto", "visc100_nuevo", "DOUBLE PRECISION"),
         ]:
             await conn.execute(text(
                 "ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s" % (tabla, columna, tipo)

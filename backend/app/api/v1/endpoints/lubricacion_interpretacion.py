@@ -661,14 +661,18 @@ async def tablero(
     # SAE J300 permite juzgar la viscosidad, y sin él ese juicio no se hace en
     # vez de hacerse contra un promedio inventado.
     grados: Dict[int, Optional[str]] = {}
+    # Y la ficha del aceite nuevo: Tormos juzga TBN y viscosidad contra ella.
+    fichas: Dict[int, Tuple[Optional[float], Optional[float]]] = {}
     cargas_necesarias = {m.carga_id for m in lista_muestras if m.carga_id}
     if cargas_necesarias:
-        for carga_id, grado in (await db.execute(
-            select(LubeCarga.id, LubeProducto.grado_sae)
+        for carga_id, grado, tbn_n, visc_n in (await db.execute(
+            select(LubeCarga.id, LubeProducto.grado_sae, LubeProducto.tbn_nuevo,
+                   LubeProducto.visc100_nuevo)
             .join(LubeProducto, LubeProducto.id == LubeCarga.producto_id)
             .where(en_lista(LubeCarga.id, cargas_necesarias))
         )).all():
             grados[carga_id] = grado
+            fichas[carga_id] = (tbn_n, visc_n)
 
     # Los diagnósticos ya escritos por una persona mandan sobre el automático:
     # quien miró el motor sabe cosas que la muestra no dice.
@@ -713,6 +717,8 @@ async def tablero(
                 meta_iso=comp.meta_iso4406,
                 iso_medido=iso_medido,
                 criterio=criterio,
+                tbn_nuevo=fichas.get(muestra.carga_id or -1, (None, None))[0],
+                visc100_nuevo=fichas.get(muestra.carga_id or -1, (None, None))[1],
             )
             hallazgos = evaluacion["hallazgos"]
             fuera = [c for c, h in hallazgos.items() if h.get("estado")]

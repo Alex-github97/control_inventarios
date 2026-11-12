@@ -316,6 +316,10 @@ export function ConfiguracionLubricacion({ panelOcr }: { panelOcr?: React.ReactN
               { clave: 'base', etiqueta: 'Base', tipo: 'select', opciones: [
                 { valor: 'Mineral', texto: 'Mineral' }, { valor: 'Semisintético', texto: 'Semisintético' },
                 { valor: 'Sintético', texto: 'Sintético' }] },
+              { clave: 'tbn_nuevo', etiqueta: 'TBN del aceite nuevo (mgKOH/g)', tipo: 'numero',
+                ayuda: 'De la ficha técnica. Con él, el TBN se juzga por la reserva que queda (Tormos: alerta al 60 %, alarma al 50 %)' },
+              { clave: 'visc100_nuevo', etiqueta: 'Viscosidad a 100 °C del aceite nuevo (cSt)', tipo: 'numero',
+                ayuda: 'De la ficha técnica. Con ella, la viscosidad se juzga contra el aceite nuevo y no contra la banda SAE' },
             ]}
             columnas={[
               { clave: 'marca', etiqueta: 'Marca' },
@@ -323,6 +327,8 @@ export function ConfiguracionLubricacion({ panelOcr }: { panelOcr?: React.ReactN
               { clave: 'familia', etiqueta: 'Familia' },
               { clave: 'grado_sae', etiqueta: 'SAE' },
               { clave: 'base', etiqueta: 'Base' },
+              { clave: 'tbn_nuevo', etiqueta: 'TBN nuevo' },
+              { clave: 'visc100_nuevo', etiqueta: 'Visc. 100 °C' },
             ]}
           />
         )}

@@ -11985,6 +11985,10 @@ export interface components {
             marca_id: number;
             /** Nombre */
             nombre: string;
+            /** Tbn Nuevo */
+            tbn_nuevo?: number | null;
+            /** Visc100 Nuevo */
+            visc100_nuevo?: number | null;
         };
         /** ReclamacionCreate */
         ReclamacionCreate: {
@@ -13995,6 +13999,10 @@ export interface components {
             marca_id: number;
             /** Nombre */
             nombre: string;
+            /** Tbn Nuevo */
+            tbn_nuevo?: number | null;
+            /** Visc100 Nuevo */
+            visc100_nuevo?: number | null;
         };
         /** CargaIn */
         app__api__v1__endpoints__lubricacion_operacion__CargaIn: {
