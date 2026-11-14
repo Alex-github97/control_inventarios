@@ -10,6 +10,8 @@ llantas son decenas de miles de filas pequeñas, y cruzarlas en Python es más
 simple y más rápido que doce agregaciones SQL distintas, una por categoría.
 """
 import asyncio
+import time
+from bisect import bisect_right
 from collections import defaultdict
 from datetime import date, datetime, time as hora
 from typing import Dict, List, Optional
@@ -19,13 +21,14 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cache_respuestas import en_cache
+from app.core.cache_respuestas import en_cache, version_de
 from app.core.database import get_db
+from app.core.tenant import esquema_actual
 from app.core.neumaticos_filtros import FiltrosLlanta, aplicar, etiqueta_referencia, filtros_llanta
 from app.core.paginacion import poner_total
 from app.core.rendimiento_llantas import (
     DIMENSIONES, SIN_DATO, VidaLlanta, a_datetime, agrupar, en_periodo, etiqueta_vida,
-    grupo_vida, km_de_vida, mm_de_vida, resumir, suma_en_lapso, ultimo_antes,
+    grupo_vida, km_de_vida, mm_de_vida, resumir, suma_en_lapso,
 )
 from app.infrastructure.models.eam import (
     EAMActivo, EAMAjusteNeumatico, EAMBandaReencauche, EAMMotivoFinVida,
@@ -87,7 +90,41 @@ class VidaRendimiento(BaseModel):
     categorias: Dict[str, str]
 
 
+# ── Las vidas se arman una vez y las comparten los informes ──
+#
+# Rendimiento, su detalle, el PDF y la proyección parten de las mismas vidas, y
+# cada cambio de filtro en pantalla las volvía a armar enteras (3 a 9 s). Se
+# guardan por proceso mientras la versión de los datos de la empresa no cambie
+# (la misma de `core/cache_respuestas.py`: cualquier escritura la sube) y dos
+# minutos como mucho. Una sola empresa a la vez y solo flotas hasta TOPE_VIDAS:
+# es memoria del proceso, y una flota enorme ocuparía más de lo que ahorra.
+# Nadie modifica las vidas después de armarlas; cada quien recibe su propia lista.
+TOPE_VIDAS = 80_000
+_VIGENCIA_VIDAS = 120.0
+_vidas_guardadas: Dict[str, tuple] = {}     # {llave: (momento, vidas)}; una entrada
+_vidas_turno: Dict[str, asyncio.Lock] = {}
+
+
 async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
+    try:
+        esquema = esquema_actual() or "public"
+        llave = f"{esquema}:{await version_de(esquema)}:{date.today().isoformat()}"
+    except Exception:  # noqa: BLE001  (sin Redis no hay versión: se arma como siempre)
+        return await _armar_vidas(db)
+    async with _vidas_turno.setdefault(llave, asyncio.Lock()):
+        guardado = _vidas_guardadas.get(llave)
+        if guardado and time.monotonic() - guardado[0] < _VIGENCIA_VIDAS:
+            return list(guardado[1])
+        vidas = await _armar_vidas(db)
+        _vidas_guardadas.clear()
+        for k in [k for k in _vidas_turno if k != llave]:
+            _vidas_turno.pop(k, None)
+        if len(vidas) <= TOPE_VIDAS:
+            _vidas_guardadas[llave] = (time.monotonic(), vidas)
+        return list(vidas)
+
+
+async def _armar_vidas(db: AsyncSession) -> List[VidaLlanta]:
     # Filas de columnas y no objetos ORM: son cien mil llantas y ciento treinta
     # mil vidas, y armar el objeto completo de cada una era un tercio del tiempo.
     neumaticos = list((await db.execute(select(*EAMNeumatico.__table__.c))).all())
@@ -103,18 +140,22 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
     # Lo que se suma o se descuenta a la vida en la que ocurrió.
     reesculturados = defaultdict(list)     # (fecha, costo)
     mm_reesculturados = defaultdict(list)  # (fecha, mm de labrado agregados)
+    R = EAMReesculturado
     for r in (await db.execute(
-        select(EAMReesculturado).where(EAMReesculturado.deshecho.isnot(True))
-    )).scalars().all():
+        select(R.neumatico_id, R.fecha, R.costo, R.profundidad_nueva, R.profundidad_anterior)
+        .where(R.deshecho.isnot(True))
+    )).all():
         reesculturados[r.neumatico_id].append((r.fecha, r.costo or 0))
         if r.profundidad_nueva is not None and r.profundidad_anterior is not None:
             mm_reesculturados[r.neumatico_id].append(
                 (r.fecha, max(0.0, r.profundidad_nueva - r.profundidad_anterior)))
     reparaciones = defaultdict(list)
-    for t in (await db.execute(select(EAMTrabajoRealizadoNeumatico))).scalars().all():
+    T = EAMTrabajoRealizadoNeumatico
+    for t in (await db.execute(select(T.neumatico_id, T.fecha, T.costo_unitario, T.cantidad))).all():
         reparaciones[t.neumatico_id].append((t.fecha, (t.costo_unitario or 0) * (t.cantidad or 1)))
     ajustes = defaultdict(list)
-    for a in (await db.execute(select(EAMAjusteNeumatico))).scalars().all():
+    A = EAMAjusteNeumatico
+    for a in (await db.execute(select(A.neumatico_id, A.fecha, A.valor))).all():
         ajustes[a.neumatico_id].append((a_datetime(a.fecha), a.valor or 0))
 
     # Banda y proveedor de cada reencauche, en el orden en que se hicieron: el
@@ -168,8 +209,10 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
             }
 
             def armar(numero_vida, tipo, terminada, inicio, fin, km, mm, costo, motivo, banda, proveedor):
-                fechas, ids = montajes[n.id]
-                montaje = ultimo_antes(fechas, list(zip(fechas, ids)), fin or ahora)
+                # El último montaje con fecha <= fin (lo mismo que `ultimo_antes`,
+                # sin rehacer la lista de parejas en cada vida).
+                i = bisect_right(fechas_montaje, fin or ahora)
+                montaje = (fechas_montaje[i - 1], ids_montaje[i - 1]) if i else None
                 activo_id = montaje[1] if montaje else None
                 # Un montaje anterior al inicio pertenece a la vida pasada: la vida
                 # reencauchada arranca en la bodega, no en el vehículo de antes.
@@ -202,14 +245,19 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
                     },
                 )
 
+            fechas_montaje, ids_montaje = montajes[n.id]
+            # Casi ninguna llanta tiene reparaciones, ajustes o reesculturados:
+            # una lista vacía suma 0.0 sin recorrerla.
+            l_rep, l_aju = reparaciones.get(n.id), ajustes.get(n.id)
+            l_ree, l_mm = reesculturados.get(n.id), mm_reesculturados.get(n.id)
             registros = vidas_por_llanta.get(n.id)
             if not registros:
                 # Llanta anterior al registro de vidas: se toma entera como una sola
                 # vida, con el mismo criterio que el indicador de CPK de la llanta.
                 # Su costo ya incluye los reesculturados.
                 terminada = n.estado == "BAJA"
-                costo = (n.costo or 0) + suma_en_lapso(reparaciones[n.id], None, None) \
-                    - suma_en_lapso(ajustes[n.id], None, None)
+                costo = (n.costo or 0) + (suma_en_lapso(l_rep, None, None) if l_rep else 0.0) \
+                    - (suma_en_lapso(l_aju, None, None) if l_aju else 0.0)
                 salida.append(armar(
                     (n.reencauches or 0) + 1, "NUEVA" if not n.reencauches else "REENCAUCHADA",
                     terminada, a_datetime(n.fecha_instalacion),
@@ -237,16 +285,16 @@ async def _vidas(db: AsyncSession) -> List[VidaLlanta]:
                 if inicial is not None:
                     # El reesculturado agrega labrado: sin sumarlo, los mm gastados
                     # saldrían menores de lo que la llanta realmente rodó.
-                    inicial += suma_en_lapso(mm_reesculturados[n.id], v.fecha_inicio, v.fecha_fin)
+                    inicial += suma_en_lapso(l_mm, v.fecha_inicio, v.fecha_fin) if l_mm else 0.0
                 mm = mm_de_vida(inicial, prof_final)
 
                 costo_base = v.costo
                 if costo_base is None and v.tipo == "NUEVA":
                     costo_base = n.costo if not terminada else None
                 costo = (costo_base or 0) \
-                    + suma_en_lapso(reesculturados[n.id], v.fecha_inicio, v.fecha_fin) \
-                    + suma_en_lapso(reparaciones[n.id], v.fecha_inicio, v.fecha_fin) \
-                    - suma_en_lapso(ajustes[n.id], v.fecha_inicio, v.fecha_fin)
+                    + (suma_en_lapso(l_ree, v.fecha_inicio, v.fecha_fin) if l_ree else 0.0) \
+                    + (suma_en_lapso(l_rep, v.fecha_inicio, v.fecha_fin) if l_rep else 0.0) \
+                    - (suma_en_lapso(l_aju, v.fecha_inicio, v.fecha_fin) if l_aju else 0.0)
 
                 banda = proveedor = None
                 if v.tipo == "REENCAUCHADA":
