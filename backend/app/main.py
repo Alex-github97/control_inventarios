@@ -2664,6 +2664,11 @@ app.add_middleware(TenantMiddleware)
 # módulo en el menú no basta: quien escriba la URL a mano entraría igual.
 app.add_middleware(ModulosMiddleware)
 
+# El último en registrarse es el que envuelve a todos: mide el tiempo completo
+# de la petición, con la compresión y los permisos incluidos.
+from app.core.peticiones_lentas import PeticionesLentas  # noqa: E402
+app.add_middleware(PeticionesLentas)
+
 # La autenticación se exige a nivel del router: eran 470 rutas sin token, y
 # ponerlo en cada firma habría dejado la puerta abierta a que la siguiente
 # naciera igual de expuesta. Las excepciones están enumeradas en auth_global.

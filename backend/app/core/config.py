@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # core/modulos.py («eam,wms»). Vacío = todos. Ver core/modulos_servidor.py.
     MODULOS_SERVIDOR: str = ""
 
+    # Toda petición que tarde esto o más deja una línea «LENTA» en el registro
+    # (core/peticiones_lentas.py). 0 = no medir.
+    PETICION_LENTA_MS: int = 1000
+
     # ── Envío de informes (bots de TittanWare, uno para todos los clientes) ────
     # Sin token el canal queda apagado y la pantalla lo dice; no rompe nada.
     TELEGRAM_BOT_TOKEN: str = ""

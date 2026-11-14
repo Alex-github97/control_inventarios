@@ -32,12 +32,27 @@ services:
       retries: 5
     # Cada cliente son 416 tablas: con varios, el catálogo pesa y conviene
     # darle memoria a Postgres. Ajustar según la RAM de la máquina.
+    #
+    # Disco SSD: con los valores de fábrica (random_page_cost=4,
+    # effective_io_concurrency=1) Postgres cree que saltar por un índice es
+    # caro, como en un disco mecánico, y prefiere leer la tabla entera.
+    #
+    # Medición: pg_stat_statements acumula el tiempo por consulta (se lee con
+    # `SELECT ... FROM pg_stat_statements ORDER BY total_exec_time DESC`), y
+    # toda consulta de más de un segundo queda en `docker logs prod_postgres`.
     command: >
       postgres
       -c shared_buffers=1GB
       -c effective_cache_size=3GB
       -c max_connections=120
       -c work_mem=16MB
+      -c maintenance_work_mem=256MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.max=10000
+      -c track_io_timing=on
+      -c log_min_duration_statement=1000
 
   redis:
     image: redis:7-alpine
@@ -65,6 +80,11 @@ services:
       # Las sesiones de usuario viven en Redis y sin él nadie entra (falla
       # cerrado). Se fija aquí para no depender de que .env.prod lo traiga.
       REDIS_SESIONES_URL: redis://redis:6379/1
+      # Tope de conexiones por proceso = DATABASE_POOL_SIZE + este valor. Con el
+      # valor por omisión del código (40) tres procesos podían pedir 150 y
+      # Postgres solo acepta 120: bajo carga, los últimos recibían un error.
+      # 10 + 15 = 25 por proceso; con 4 procesos son 100 y queda margen.
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-15}
     # Varios procesos para aprovechar los núcleos. Regla práctica: 2 por vCPU.
     command: >
       uvicorn app.main:app --host 0.0.0.0 --port 8000
