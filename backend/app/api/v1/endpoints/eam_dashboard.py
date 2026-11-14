@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 from app.infrastructure.models.eam import (
     EAMActivo, EAMOrdenTrabajo, EAMPlanActivo, EAMPlanMantenimiento,
@@ -52,6 +53,7 @@ def _horas(inicio: Optional[datetime], fin: Optional[datetime]) -> Optional[floa
 
 
 @router.get("/dashboard/completo")
+@en_cache(minutos=2)
 async def tablero(
     dias: int = Query(90, ge=7, le=1095),
     tipo_activo: Optional[str] = None,

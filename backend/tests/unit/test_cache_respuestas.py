@@ -67,6 +67,10 @@ def _app(cuenta):
     async def registro(mal: bool = False):
         return Response(status_code=422 if mal else 201)
 
+    @app.post("/api/v1/auth/login")
+    async def login():
+        return {"ok": True}
+
     app.add_middleware(cr.CacheDeRespuestas)
     return app
 
@@ -149,3 +153,13 @@ async def test_dos_a_la_vez_calculan_una_sola(c):
     a, b, d = await asyncio.gather(c.get("/informe?meses=9"), c.get("/informe?meses=9"), c.get("/informe?meses=9"))
     assert c.cuenta["informe"] == 1
     assert a.content == b.content == d.content
+
+
+async def test_iniciar_sesion_no_invalida(c):
+    await c.get("/informe")
+    assert (await c.post("/api/v1/auth/login")).status_code == 200
+    assert (await c.get("/informe")).json()["vez"] == 1
+    assert not cr._NO_CAMBIAN_DATOS.match("/api/v1/auth/empresa/logo")
+    assert not cr._NO_CAMBIAN_DATOS.match("/api/v1/eam/ots")
+    assert cr._NO_CAMBIAN_DATOS.match("/api/v1/alertas/15/leer")
+    assert not cr._NO_CAMBIAN_DATOS.match("/api/v1/alertas/15/resolver")

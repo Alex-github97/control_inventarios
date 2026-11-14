@@ -42,6 +42,7 @@ import hashlib
 import inspect
 import json
 import logging
+import re
 import time
 import zlib
 from contextvars import ContextVar
@@ -62,6 +63,12 @@ TOPE_CUERPO = 12 * 1024 * 1024      # sin comprimir; más grande no se guarda
 TOPE_GUARDADO = 4 * 1024 * 1024     # comprimido (un Excel ya viene comprimido)
 ESPERA_OTRO_PROCESO = 45.0          # s que se espera a que otro proceso termine el mismo cálculo
 _NO_REPETIR = {b"content-length", b"content-encoding", b"vary"}
+
+# Escrituras que no tocan los datos de operación de la empresa. Sin esta lista,
+# cada inicio de sesión descartaba todos los informes guardados. Solo entra lo
+# que con certeza no cambia un informe; ante la duda, la escritura invalida.
+_NO_CAMBIAN_DATOS = re.compile(
+    r"^/api/v1/(auth/(login|logout|change-password)|soporte/|alertas/\d+/leer)")
 
 # La petición en curso. El middleware crea la caja y la ruta la llena: es un
 # diccionario compartido porque un ContextVar no viaja de la ruta hacia afuera.
@@ -224,7 +231,8 @@ class CacheDeRespuestas:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        escribe = scope.get("method") not in ("GET", "HEAD", "OPTIONS")
+        escribe = (scope.get("method") not in ("GET", "HEAD", "OPTIONS")
+                   and not _NO_CAMBIAN_DATOS.match(scope.get("path", "")))
         caja: Dict[str, Any] = {}
         ficha = _caja.set(caja)
         r = {"estado": 0, "cabeceras": [], "trozos": [], "peso": 0, "completa": False}

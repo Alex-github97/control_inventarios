@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 from app.core.confiabilidad import (
     ordenes_del_periodo, mttr, mtbf, disponibilidad, agrupar, horas_entre,
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/eam/confiabilidad", tags=["CMMS/EAM · Confiabilidad
 
 
 @router.get("/indicadores", response_model=Dict[str, Any])
+@en_cache(minutos=10)
 async def indicadores(dias: int = Query(180, ge=30, le=1825),
                       tipo_activo: Optional[str] = None,
                       marca: Optional[str] = None,
@@ -72,6 +74,7 @@ async def indicadores(dias: int = Query(180, ge=30, le=1825),
 
 
 @router.get("/pareto", response_model=Dict[str, Any])
+@en_cache(minutos=10)
 async def pareto(dias: int = Query(180, ge=30, le=1825),
                  criterio: str = Query("costo", pattern="^(costo|fallas|horas)$"),
                  db: AsyncSession = Depends(get_db)):
@@ -122,6 +125,7 @@ async def pareto(dias: int = Query(180, ge=30, le=1825),
 
 
 @router.get("/criticidad", response_model=List[Dict[str, Any]])
+@en_cache(minutos=10)
 async def criticidad(dias: int = Query(365, ge=90, le=1825),
                      db: AsyncSession = Depends(get_db)):
     """Cruce de frecuencia de falla contra costo, por activo.

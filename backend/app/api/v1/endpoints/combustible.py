@@ -32,6 +32,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, and_, or_, desc, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.infrastructure.models.usuario import Usuario
@@ -536,6 +537,7 @@ async def rendimiento(dias: int = Query(180, ge=7, le=1825),
 
 
 @router.get("/alertas", response_model=List[Dict[str, Any]])
+@en_cache(minutos=10)
 async def alertas(dias: int = Query(90, ge=7, le=730),
                   db: AsyncSession = Depends(get_db)):
     """Vehículos por debajo de su meta.
