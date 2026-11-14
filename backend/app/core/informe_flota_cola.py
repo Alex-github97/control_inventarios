@@ -133,11 +133,12 @@ async def vuelta(esquema: str) -> int:
 
 
 async def ciclo() -> None:
-    from app.core.reuniones.cola import _esquemas
+    from app.core.modulos_servidor import esquemas_con
     while True:
         await asyncio.sleep(INTERVALO)
         try:
-            for esq in await _esquemas():
+            # Solo las empresas con Gestión de Activos contratado.
+            for esq in await esquemas_con("eam"):
                 try:
                     await vuelta(esq)
                 except Exception as e:  # noqa: BLE001 — un cliente con error no frena a los demás

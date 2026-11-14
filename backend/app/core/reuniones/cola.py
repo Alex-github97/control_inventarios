@@ -186,6 +186,9 @@ async def reintentar(db, r: CRMReunion) -> str:
 
 
 # ── El ciclo de fondo ──────────────────────────────────────────────────────────
+from app.core.modulos_servidor import esquemas_con  # noqa: E402
+
+
 async def _esquemas() -> list:
     async with engine.connect() as c:
         hay = (await c.execute(text("SELECT to_regclass('public.plataforma_cliente')"))).scalar()
@@ -236,7 +239,8 @@ async def ciclo() -> None:
     while True:
         await asyncio.sleep(INTERVALO)
         try:
-            esquemas = await _esquemas()
+            # Solo las empresas con CRM contratado.
+            esquemas = await esquemas_con("crm")
             # Sin clave de OpenAI no se reclama nada: los trabajos esperan en la
             # cola en vez de fallar, y arrancan solos cuando se configure.
             for esq in (esquemas if ia.configurado() else []):

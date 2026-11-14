@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 INTERVALO = 60
 
 
+from app.core.modulos_servidor import esquemas_con  # noqa: E402
+
+
 async def _esquemas() -> list:
     async with engine.connect() as c:
         hay = (await c.execute(text("SELECT to_regclass('public.plataforma_cliente')"))).scalar()
@@ -56,7 +59,8 @@ async def ciclo() -> None:
     while True:
         await asyncio.sleep(INTERVALO)
         try:
-            for esq in await _esquemas():
+            # Solo las empresas con WMS contratado: el resto ni tiene frentes.
+            for esq in await esquemas_con("wms"):
                 try:
                     await vuelta(esq)
                 except Exception as e:  # noqa: BLE001 — un cliente con error no frena a los demás

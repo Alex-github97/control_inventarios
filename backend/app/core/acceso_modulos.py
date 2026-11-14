@@ -23,6 +23,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.modulos import ESENCIALES, POR_CLAVE, modulo_de_ruta
+from app.core.modulos_servidor import cargado
 from app.core.permisos_ruta import claves_de_ruta, permitido
 from app.core.security import decode_token
 from app.core.tenant import ESQUEMA_PLATAFORMA
@@ -111,6 +112,14 @@ class ModulosMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         modulo = modulo_de_ruta(ruta)
+        # Un módulo que este servidor no carga (MODULOS_SERVIDOR): sus rutas no
+        # existen, y un 404 mudo haría pensar en un error del portal.
+        if not cargado(modulo):
+            nombre = POR_CLAVE[modulo].nombre if modulo in POR_CLAVE else modulo
+            return JSONResponse(
+                status_code=404,
+                content={"detail": f"El módulo «{nombre}» no está disponible en este servidor."},
+            )
         claves = claves_de_ruta(ruta, request.method)
         # Ruta que no pertenece a ningún módulo ni pide permiso: no hay nada que
         # cobrar ni que negar, y `exigir_sesion` ya decide si necesita token.

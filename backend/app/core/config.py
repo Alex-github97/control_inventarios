@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # si una pantalla legítima resulta pidiendo algo que su perfil no tiene.
     PERMISOS_PERFIL_MODO: str = "exigir"
 
+    # Módulos que carga este servidor, separados por coma con las claves de
+    # core/modulos.py («eam,tarifax»). Vacío = todos. Ver core/modulos_servidor.py.
+    MODULOS_SERVIDOR: str = ""
+
     # ── Envío de informes (bots de TittanWare, uno para todos los clientes) ────
     # Sin token el canal queda apagado y la pantalla lo dice; no rompe nada.
     TELEGRAM_BOT_TOKEN: str = ""

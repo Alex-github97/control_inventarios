@@ -116,6 +116,9 @@ services:
       # Las sesiones de usuario viven en Redis y sin él nadie entra (falla
       # cerrado). Se fija aquí para no depender de que .env.prod lo traiga.
       REDIS_SESIONES_URL: redis://redis:6379/1
+      # Este clon solo sirve TarifaX: no carga el código de los demás módulos
+      # ni corre sus tareas de fondo (unos 440 MB menos, medido 2026-11-13).
+      MODULOS_SERVIDOR: tarifax
     # Un solo proceso, y no por ahorrar núcleos: TarifaX guarda el tarifario
     # de 21 MB en memoria de CADA worker, y el primer llamado de cada uno
     # tarda unos cuarenta segundos en cargarlo. Con uno solo se carga una vez,

@@ -1,141 +1,147 @@
+"""
+Registro de las rutas de la API, módulo por módulo.
+
+Cada archivo de endpoints se importa SOLO si su módulo está cargado en este
+servidor (`MODULOS_SERVIDOR`, ver core/modulos_servidor.py). Importarlos todos
+costaba ~330 MB por proceso en servidores que solo atienden un módulo.
+
+EL ORDEN IMPORTA: cuando dos rutas chocan, gana la primera registrada (por eso
+`gestion` va antes que `gestion_incidencias`, o `erp` antes que `erp_contable`).
+La tabla conserva el orden en que se registraban antes de este cambio.
+
+`None` en la clave = no se vende aparte: acceso, consola, landing, soporte,
+gestión interna y TittanBot van en todos los servidores.
+"""
+import importlib
+
 from fastapi import APIRouter
-from app.api.v1.endpoints import (
-    auth, usuarios, estibas, ubicaciones, proveedores,
-    eam_neumaticos_disposicion, eam_neumaticos_proyeccion, eam_lite, eam_mensajeria, vehiculos, manifiestos, movimientos, dashboard, alertas, danos, tarifax, mantenimiento, consultas, roles, fletes, flota, locative, wms, hcm, tms, dms, qms, grc, lms, lms_aprendizaje, crm, eam, mes, aps, erp, scan_sessions, scm, sst, lubricacion, lubricacion_gestion, lubricacion_operacion, lubricacion_analitica, lubricacion_interpretacion, lubricacion_flota, lubricacion_importar, lubricacion_informes, tittanbot, ags, catalogos, plataforma, plataforma_comercial, plataforma_contable, eam_importar, eam_config, eam_dashboard, checklists, checklists_ejecucion, combustible, inventario, eam_confiabilidad, eam_analitica, eam_garantias_apoyo, eam_reportes, eam_neumaticos_informes, eam_neumaticos_tableros, eam_neumaticos_sugerencias, eam_adjuntos, eam_causa_raiz, mes_flujo, mes_planta, mes_analitica, qms_analitica, grc_analitica, grc_relaciones, grc_config, pos, erp_facturacion, wms_trazable, wms_cubicaje, wms_indicadores, wms_sugerencias, wms_maquila, wms_mapa, wms_3pl, wms_portal, wms_traslados, wms_operacion_tareas, tarifax_comparativo, crm_reuniones, soporte, soporte_agil, plataforma_equipo, landing, gestion, gestion_incidencias, gestion_consultas, gestion_agil, gestion_pizarras, gestion_config, gestion_formulario, erp_contable, erp_gestion,
-    reencauche, reencauche_operacion, reencauche_despachos, reencauche_consultas, movil,
+
+from app.core.modulos_servidor import cargado
+
+# (archivo en endpoints/, atributo del router, clave del módulo)
+RUTAS = (
+    ("erp", "router", "erp"),
+    # El núcleo contable cuelga del mismo prefijo /erp: desde fuera es el mismo módulo.
+    ("erp_contable", "router", "erp"),
+    ("erp_gestion", "router", "erp"),
+    ("auth", "router", None),
+    ("movil", "router", "eam"),
+    # Consola del operador: administra OTRAS empresas, no la propia.
+    ("plataforma", "router", None),
+    ("plataforma_comercial", "router", None),
+    ("plataforma_contable", "router", None),
+    ("plataforma_equipo", "router", None),
+    # Contenido de la página pública. Su lectura no exige sesión.
+    ("landing", "router", None),
+    # Gestión de Activos (antes CMMS): catálogos, tablero, checklists, combustible…
+    ("eam_importar", "router", "eam"),
+    ("eam_config", "router", "eam"),
+    ("eam_dashboard", "router", "eam"),
+    ("checklists", "router", "eam"),
+    ("checklists_ejecucion", "router", "eam"),
+    ("combustible", "router", "eam"),
+    ("inventario", "router", "eam"),
+    ("eam_confiabilidad", "router", "eam"),
+    ("eam_analitica", "router", "eam"),
+    ("eam_garantias_apoyo", "router", "eam"),
+    ("mes_analitica", "router", "mes"),
+    ("qms_analitica", "router", "qms"),
+    ("grc_analitica", "router", "grc"),
+    ("eam_reportes", "router", "eam"),
+    ("eam_neumaticos_informes", "router", "eam"),
+    ("eam_neumaticos_tableros", "router", "eam"),
+    ("eam_neumaticos_disposicion", "router", "eam"),
+    ("eam_lite", "router", "eam"),
+    ("eam_neumaticos_proyeccion", "router", "eam"),
+    ("eam_mensajeria", "router", "eam"),
+    ("eam_neumaticos_sugerencias", "router", "eam"),
+    ("eam_adjuntos", "router", "eam"),
+    ("eam_causa_raiz", "router", "eam"),
+    # Mesa de ayuda y tablero del equipo.
+    ("soporte", "router", None),
+    ("soporte_agil", "router", None),
+    # Gestión de proyectos: `gestion` antes que `gestion_incidencias` (ambos en /gestion).
+    ("gestion", "router", None),
+    ("gestion_incidencias", "router", None),
+    ("gestion_consultas", "router", None),
+    ("gestion_agil", "router", None),
+    ("gestion_pizarras", "router", None),
+    ("gestion_config", "router", None),
+    ("gestion_formulario", "router", None),
+    ("roles", "router", None),
+    ("usuarios", "router", None),
+    ("estibas", "router", "control"),
+    ("ubicaciones", "router", "control"),
+    ("proveedores", "router", None),
+    ("vehiculos", "router", "eam"),
+    ("manifiestos", "router", "control"),
+    ("movimientos", "router", "control"),
+    ("dashboard", "router", "control"),
+    ("alertas", "router", None),
+    ("danos", "router", "control"),
+    ("tarifax", "router", "tarifax"),
+    ("tarifax_comparativo", "router", "tarifax"),
+    ("mantenimiento", "router", "eam"),
+    ("consultas", "router", "control"),
+    ("fletes", "router", "tms"),
+    ("flota", "router", "eam"),
+    ("locative", "router", "locativa"),
+    ("wms", "router", "wms"),
+    ("wms_trazable", "router", "wms"),
+    ("wms_cubicaje", "router", "wms"),
+    ("wms_indicadores", "router", "wms"),
+    ("wms_sugerencias", "router", "wms"),
+    ("wms_maquila", "router", "wms"),
+    ("wms_mapa", "router", "wms"),
+    ("wms_traslados", "router", "wms"),
+    # Tareas dirigidas: frentes de picking, reabastecimiento y asignación.
+    ("wms_operacion_tareas", "router", "wms"),
+    ("wms_portal", "router", "wms"),
+    ("hcm", "router", "gh"),
+    ("tms", "router", "tms"),
+    ("dms", "router", "dms"),
+    ("qms", "router", "qms"),
+    ("grc", "router", "grc"),
+    ("grc_relaciones", "router", "grc"),
+    ("grc_config", "router", "grc"),
+    ("pos", "router", "pos"),
+    ("erp_facturacion", "router", "erp"),
+    ("lms", "router", "lms"),
+    ("lms_aprendizaje", "router", "lms"),
+    ("crm", "router", "crm"),
+    ("crm_reuniones", "router", "crm"),
+    ("eam", "router", "eam"),
+    ("mes", "router", "mes"),
+    ("mes_flujo", "router", "mes"),
+    ("mes_planta", "router", "mes"),
+    ("aps", "router", "aps"),
+    ("scan_sessions", "router", "control"),
+    ("scm", "router", "scm"),
+    ("sst", "router", "sst"),
+    # Lubricación cuelga de /eam/lube: es una capa de Gestión de Activos.
+    ("lubricacion", "router", "eam"),
+    ("lubricacion_gestion", "router", "eam"),
+    ("lubricacion_operacion", "router", "eam"),
+    ("lubricacion_analitica", "router", "eam"),
+    ("lubricacion_interpretacion", "router", "eam"),
+    ("lubricacion_flota", "router", "eam"),
+    ("lubricacion_importar", "router", "eam"),
+    ("lubricacion_informes", "router", "eam"),
+    ("tittanbot", "router", None),
+    ("ags", "router", "ags"),
+    ("catalogos", "router", None),
+    # Planta de reencauche: la carcasa como unidad de trabajo, sobre el WMS y el TMS.
+    ("reencauche", "router", "reencauche"),
+    ("reencauche_operacion", "router", "reencauche"),
+    ("reencauche_despachos", "router", "reencauche"),
+    ("reencauche_consultas", "router", "reencauche"),
+    # Las recogidas de llantas pendientes, vistas desde la planificación del TMS.
+    ("reencauche_despachos", "router_tms", "reencauche"),
 )
 
 api_router = APIRouter()
 
-api_router.include_router(erp.router)
-# El nucleo contable: terceros, periodos, reglas, libros y estados.
-# Cuelga del mismo prefijo /erp: desde fuera es el mismo modulo.
-api_router.include_router(erp_contable.router)
-api_router.include_router(erp_gestion.router)
-api_router.include_router(auth.router)
-api_router.include_router(movil.router)
-# Consola del operador: administra OTRAS empresas, no la propia.
-api_router.include_router(plataforma.router)
-api_router.include_router(plataforma_comercial.router)
-api_router.include_router(plataforma_contable.router)
-# El equipo de la consola y sus roles.
-api_router.include_router(plataforma_equipo.router)
-# Contenido de la pagina publica. Su lectura no exige sesion.
-api_router.include_router(landing.router)
-# Cargue masivo de los catalogos del CMMS.
-api_router.include_router(eam_importar.router)
-# Centros de costo y tipos de trabajo: eran maqueta, ahora persisten.
-api_router.include_router(eam_config.router)
-api_router.include_router(eam_dashboard.router)
-# Checklists: /eam/chk, otra capa del CMMS.
-api_router.include_router(checklists.router)
-api_router.include_router(checklists_ejecucion.router)
-api_router.include_router(combustible.router)
-api_router.include_router(inventario.router)
-api_router.include_router(eam_confiabilidad.router)
-api_router.include_router(eam_analitica.router)
-api_router.include_router(eam_garantias_apoyo.router)
-api_router.include_router(mes_analitica.router)
-api_router.include_router(qms_analitica.router)
-api_router.include_router(grc_analitica.router)
-api_router.include_router(eam_reportes.router)
-api_router.include_router(eam_neumaticos_informes.router)
-api_router.include_router(eam_neumaticos_tableros.router)
-api_router.include_router(eam_neumaticos_disposicion.router)
-api_router.include_router(eam_lite.router)
-api_router.include_router(eam_neumaticos_proyeccion.router)
-api_router.include_router(eam_mensajeria.router)
-api_router.include_router(eam_neumaticos_sugerencias.router)
-# Documentos de las ordenes de trabajo.
-api_router.include_router(eam_adjuntos.router)
-# Analisis de causa raiz: informe, PDF y analitica del dashboard.
-api_router.include_router(eam_causa_raiz.router)
-# Mesa de ayuda: el cliente escribe, soporte responde desde la consola.
-api_router.include_router(soporte.router)
-# Tablero, backlog, sprints y metricas: solo para el equipo.
-api_router.include_router(soporte_agil.router)
-# Gestion de proyectos e incidencias. Va antes que el de incidencias porque
-# ambos cuelgan de /gestion y el primero en registrarse gana en caso de choque.
-api_router.include_router(gestion.router)
-api_router.include_router(gestion_incidencias.router)
-# El lenguaje de filtros y los filtros guardados.
-api_router.include_router(gestion_consultas.router)
-# Sprints, backlog, Gantt y metricas.
-api_router.include_router(gestion_agil.router)
-# Pizarras de indicadores.
-api_router.include_router(gestion_pizarras.router)
-# Configuracion: flujos, estados, tipos y campos.
-api_router.include_router(gestion_config.router)
-# El esquema del formulario, versiones, componentes y tipos de vinculo.
-api_router.include_router(gestion_formulario.router)
-api_router.include_router(roles.router)
-api_router.include_router(usuarios.router)
-api_router.include_router(estibas.router)
-api_router.include_router(ubicaciones.router)
-api_router.include_router(proveedores.router)
-api_router.include_router(vehiculos.router)
-api_router.include_router(manifiestos.router)
-api_router.include_router(movimientos.router)
-api_router.include_router(dashboard.router)
-api_router.include_router(alertas.router)
-api_router.include_router(danos.router)
-api_router.include_router(tarifax.router)
-api_router.include_router(tarifax_comparativo.router)
-api_router.include_router(mantenimiento.router)
-api_router.include_router(consultas.router)
-api_router.include_router(fletes.router)
-api_router.include_router(flota.router)
-api_router.include_router(locative.router)
-api_router.include_router(wms.router)
-api_router.include_router(wms_trazable.router)
-api_router.include_router(wms_cubicaje.router)
-api_router.include_router(wms_indicadores.router)
-api_router.include_router(wms_sugerencias.router)
-api_router.include_router(wms_maquila.router)
-api_router.include_router(wms_mapa.router)
-api_router.include_router(wms_3pl.router)
-api_router.include_router(wms_traslados.router)
-# Tareas dirigidas: frentes de picking, reabastecimiento y asignación.
-api_router.include_router(wms_operacion_tareas.router)
-api_router.include_router(wms_portal.router)
-api_router.include_router(hcm.router)
-api_router.include_router(tms.router)
-api_router.include_router(dms.router)
-api_router.include_router(qms.router)
-api_router.include_router(grc.router)
-api_router.include_router(grc_relaciones.router)
-api_router.include_router(grc_config.router)
-api_router.include_router(pos.router)
-api_router.include_router(erp_facturacion.router)
-api_router.include_router(lms.router)
-api_router.include_router(lms_aprendizaje.router)
-api_router.include_router(crm.router)
-api_router.include_router(crm_reuniones.router)
-api_router.include_router(eam.router)
-api_router.include_router(mes.router)
-api_router.include_router(mes_flujo.router)
-api_router.include_router(mes_planta.router)
-api_router.include_router(aps.router)
-api_router.include_router(scan_sessions.router)
-api_router.include_router(scm.router)
-api_router.include_router(sst.router)
-api_router.include_router(lubricacion.router)
-# Lubricación cuelga de /eam/lube: es una capa del CMMS, no un módulo aparte,
-# así que el control de acceso por módulo la trata como parte de EAM.
-api_router.include_router(lubricacion_gestion.router)
-api_router.include_router(lubricacion_operacion.router)
-api_router.include_router(lubricacion_analitica.router)
-api_router.include_router(lubricacion_interpretacion.router)
-api_router.include_router(lubricacion_flota.router)
-api_router.include_router(lubricacion_importar.router)
-api_router.include_router(lubricacion_informes.router)
-api_router.include_router(tittanbot.router)
-api_router.include_router(ags.router)
-api_router.include_router(catalogos.router)
-# Planta de reencauche: la carcasa como unidad de trabajo, sobre el WMS y el TMS.
-api_router.include_router(reencauche.router)
-api_router.include_router(reencauche_operacion.router)
-api_router.include_router(reencauche_despachos.router)
-api_router.include_router(reencauche_consultas.router)
-# Las recogidas de llantas pendientes, vistas desde la planificación del TMS.
-api_router.include_router(reencauche_despachos.router_tms)
+for _archivo, _atributo, _modulo in RUTAS:
+    if cargado(_modulo):
+        _m = importlib.import_module(f"app.api.v1.endpoints.{_archivo}")
+        api_router.include_router(getattr(_m, _atributo))

@@ -2550,25 +2550,33 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     # Tareas de bodega en segundo plano: reabastecimiento de frentes y tareas
     # asignadas que nadie empezó. Cada cliente con su candado (varios workers).
+    #
+    # Cada tarea arranca solo si su módulo está cargado en este servidor
+    # (MODULOS_SERVIDOR), y en cada vuelta recorre solo las empresas que lo
+    # tienen contratado (`modulos_servidor.esquemas_con`).
     import asyncio
-    from app.core import wms_ciclo_tareas
-    tarea_bodega = asyncio.create_task(wms_ciclo_tareas.ciclo())
+    from app.core.modulos_servidor import cargado
+    tareas = []
+    if cargado("wms"):
+        from app.core import wms_ciclo_tareas
+        tareas.append(asyncio.create_task(wms_ciclo_tareas.ciclo()))
     # Reuniones del CRM: transcripción, extracción y retención del audio. La
     # cola se reparte entre los procesos con SKIP LOCKED (core/reuniones/cola.py).
-    from app.core.reuniones import cola as cola_reuniones
-    tarea_reuniones = asyncio.create_task(cola_reuniones.ciclo())
-    # Informes PDF de flota grandes: la misma cola repartida con SKIP LOCKED.
-    from app.core import informe_flota_cola
-    tarea_informes = asyncio.create_task(informe_flota_cola.ciclo())
-    # El bot de Telegram de TittanWare: vincula a quien abre su enlace. Un solo
-    # proceso lo lee a la vez (candado en Redis).
-    from app.core import mensajeria
-    tarea_telegram = asyncio.create_task(mensajeria.ciclo_telegram())
+    if cargado("crm"):
+        from app.core.reuniones import cola as cola_reuniones
+        tareas.append(asyncio.create_task(cola_reuniones.ciclo()))
+    if cargado("eam"):
+        # Informes PDF de flota grandes: la misma cola repartida con SKIP LOCKED.
+        from app.core import informe_flota_cola
+        tareas.append(asyncio.create_task(informe_flota_cola.ciclo()))
+        # El bot de Telegram de TittanWare (envío de informes de Gestión de
+        # Activos): vincula a quien abre su enlace. Un solo proceso lo lee a la
+        # vez (candado en Redis).
+        from app.core import mensajeria
+        tareas.append(asyncio.create_task(mensajeria.ciclo_telegram()))
     yield
-    tarea_telegram.cancel()
-    tarea_bodega.cancel()
-    tarea_reuniones.cancel()
-    tarea_informes.cancel()
+    for t in tareas:
+        t.cancel()
     await engine.dispose()
 
 
