@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 from app.core.neumaticos_filtros import FiltrosLlanta, aplicar, etiqueta_referencia, filtros_llanta
 from app.core.paginacion import poner_total
@@ -303,6 +304,7 @@ def _alcance(valor: str) -> str:
 
 
 @router.get("/rendimiento", response_model=RendimientoResponse)
+@en_cache(minutos=10)
 async def rendimiento(
     alcance: str = Query("TODAS", description="TODAS, TERMINADAS o EN_SERVICIO"),
     desde: Optional[date] = None,
@@ -333,6 +335,7 @@ async def rendimiento(
 
 
 @router.get("/rendimiento/vidas", response_model=List[VidaRendimiento])
+@en_cache(minutos=10)
 async def rendimiento_por_vida(
     respuesta: Response,
     alcance: str = Query("TODAS"),

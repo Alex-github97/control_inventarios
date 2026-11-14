@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import proyeccion_llantas as pl
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 
 router = APIRouter(prefix="/eam/neumaticos/proyeccion", tags=["CMMS/EAM · Neumáticos · Proyección"])
@@ -43,6 +44,7 @@ async def proyeccion_llanta(nid: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/plan")
+@en_cache(minutos=10)
 async def plan_recambio(
     origen: str = Query("TITTANWARE", description="TITTANWARE o LITE"),
     meses: int = Query(6, ge=1, le=24),
@@ -123,6 +125,7 @@ async def excel_plan(db: AsyncSession, origen: str, meses: int, activo_ids=None,
 
 
 @router.get("/plan/excel")
+@en_cache(minutos=10)
 async def plan_excel(origen: str = "TITTANWARE", meses: int = Query(6, ge=1, le=24),
                      activo_ids: Optional[List[int]] = Query(None), tipos_vehiculo: Optional[List[str]] = Query(None),
                      dias_lite: int = Query(180, ge=7, le=1095), db: AsyncSession = Depends(get_db)):

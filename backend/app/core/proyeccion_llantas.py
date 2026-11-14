@@ -24,7 +24,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rendimiento_llantas import SIN_DATO, grupo_vida
@@ -128,6 +128,8 @@ async def km_diario(db: AsyncSession, ventana: int, activo_ids: Optional[List[in
     """km por día de cada vehículo con sus lecturas de odómetro con fecha. Se
     toma la ventana; si en ella hay menos de 7 días de diferencia, todo lo que
     haya."""
+    if not extra:
+        return await _km_diario_en_base(db, ventana, activo_ids)
     lecturas: Dict[int, List[Tuple[datetime, float]]] = defaultdict(list)
     for tabla, col_km in ((EAMMovimientoNeumatico, EAMMovimientoNeumatico.km_odometro),
                           (EAMRegistroCombustible, EAMRegistroCombustible.odometro)):
@@ -149,6 +151,53 @@ async def km_diario(db: AsyncSession, ventana: int, activo_ids: Optional[List[in
             dias = (b[0] - a[0]).total_seconds() / 86400
             if dias >= 7 and b[1] > a[1]:
                 salida[aid] = round((b[1] - a[1]) / dias, 1)
+                break
+    return salida
+
+
+_SQL_KM_DIARIO = """
+WITH lecturas AS (
+    SELECT activo_id, fecha, km_odometro::float8 AS km FROM eam_movimiento_neumatico
+     WHERE activo_id IS NOT NULL AND fecha IS NOT NULL AND km_odometro > 0 {filtro}
+    UNION ALL
+    SELECT activo_id, fecha, odometro::float8 FROM eam_registro_combustible
+     WHERE activo_id IS NOT NULL AND fecha IS NOT NULL AND odometro > 0 {filtro}
+)
+SELECT activo_id,
+       count(*) FILTER (WHERE fecha >= :corte),
+       min(fecha) FILTER (WHERE fecha >= :corte),
+       (array_agg(km ORDER BY fecha, km) FILTER (WHERE fecha >= :corte))[1],
+       max(fecha) FILTER (WHERE fecha >= :corte),
+       (array_agg(km ORDER BY fecha DESC, km DESC) FILTER (WHERE fecha >= :corte))[1],
+       count(*), min(fecha), (array_agg(km ORDER BY fecha, km))[1],
+       max(fecha), (array_agg(km ORDER BY fecha DESC, km DESC))[1]
+  FROM lecturas GROUP BY activo_id
+"""
+
+
+async def _km_diario_en_base(db: AsyncSession, ventana: int,
+                             activo_ids: Optional[List[int]] = None) -> Dict[int, float]:
+    """Lo mismo que el cálculo en memoria de `km_diario`, pero la base devuelve
+    solo la primera y la última lectura de cada vehículo (en la ventana y en
+    total) en vez de todas: con 3.000 vehículos eran 600 mil filas y 6 s.
+
+    «Primera» y «última» se desempatan igual que `min`/`max` sobre la pareja
+    (fecha, km): a igual fecha, el km menor abre y el mayor cierra.
+    """
+    parametros: Dict[str, Any] = {"corte": datetime.now() - timedelta(days=ventana)}
+    filtro = ""
+    if activo_ids:
+        filtro = "AND activo_id = ANY(:ids)"
+        parametros["ids"] = list(activo_ids)
+    salida = {}
+    for aid, n1, fa1, ka1, fb1, kb1, n2, fa2, ka2, fb2, kb2 in (
+            await db.execute(text(_SQL_KM_DIARIO.format(filtro=filtro)), parametros)).all():
+        for n, fa, ka, fb, kb in ((n1, fa1, ka1, fb1, kb1), (n2, fa2, ka2, fb2, kb2)):
+            if n < 2:
+                continue
+            dias = (fb - fa).total_seconds() / 86400
+            if dias >= 7 and kb > ka:
+                salida[aid] = round((kb - ka) / dias, 1)
                 break
     return salida
 

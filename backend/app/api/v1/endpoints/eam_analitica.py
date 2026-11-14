@@ -30,6 +30,7 @@ from app.core.analitica.weibull import (
     ajustar_weibull, crow_amsaa, fallas_esperadas, prob_falla_condicional,
     reemplazo_optimo, confiabilidad,
 )
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 from app.infrastructure.models.eam import (
     EAMActivo, EAMOrdenTrabajo, EAMFallaCatalogo, EAMRegistroCombustible,
@@ -185,6 +186,7 @@ def _vidas(d: Datos, poblacion: List[int], fallas: Dict[int, List[datetime]], un
 
 
 @router.get("/weibull", response_model=Dict[str, Any])
+@en_cache(minutos=10)
 async def weibull_por_modo(costo_preventivo: Optional[float] = Query(None, ge=0),
                            db: AsyncSession = Depends(get_db)):
     """Un ajuste de Weibull por cada modo de falla con historia suficiente.
@@ -290,6 +292,7 @@ async def calcular_reemplazo(beta: float = Query(..., gt=0), eta: float = Query(
 # ─── Tendencia por equipo (Crow-AMSAA) ────────────────────────────────────────
 
 @router.get("/tendencia", response_model=Dict[str, Any])
+@en_cache(minutos=10)
 async def tendencia_por_equipo(db: AsyncSession = Depends(get_db)):
     """¿Qué equipos se están deteriorando? Crow-AMSAA sobre todas sus fallas,
     en días desde que empezó el registro de cada uno."""
@@ -394,6 +397,7 @@ MAX_OBSERVACIONES = 60_000
 
 
 @router.get("/prediccion", response_model=Dict[str, Any])
+@en_cache(minutos=10)
 async def prediccion_de_fallas(db: AsyncSession = Depends(get_db)):
     """Probabilidad de que cada equipo tenga una falla en los próximos 30 días.
 
@@ -468,6 +472,7 @@ def _atipicos(valores: List[Tuple[Any, float]], umbral: float = 3.5):
 
 
 @router.get("/anomalias", response_model=Dict[str, Any])
+@en_cache(minutos=10)
 async def anomalias(dias: int = Query(365, ge=30, le=1825), db: AsyncSession = Depends(get_db)):
     """Órdenes con costo o duración fuera de lo normal para su tipo, y
     tanqueos con rendimiento fuera de lo normal para el mismo equipo."""

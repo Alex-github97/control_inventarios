@@ -2647,6 +2647,11 @@ async def _dato_rechazado(request: _Request, exc: _DBAPIError):
     logging.getLogger(__name__).exception("Error de base de datos no clasificado", exc_info=exc)
     return _JSONResponse(status_code=500, content={"detail": "Error interno del servidor"})
 
+# El primero en registrarse es el más interno: ve la respuesta tal como sale de
+# la ruta, antes de comprimirla (core/cache_respuestas.py).
+from app.core.cache_respuestas import CacheDeRespuestas  # noqa: E402
+app.add_middleware(CacheDeRespuestas)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
