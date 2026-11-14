@@ -31,7 +31,6 @@
       "costos": "成本",
       "consultas": "查询",
       "tablero": "看板",
-      "motorTarifax": "TarifaX 引擎",
       "despachoViajes": "行程调度",
       "generadoresCarga": "货物生成器",
       "viajes": "行程",
@@ -221,7 +220,6 @@
       "ingenieria": "工程",
       "demanda": "需求",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "发货",
       "catalogos": "目录",
       "contabilidad": "会计",
@@ -231,7 +229,6 @@
     },
     "ws": {
       "control": "托盘控制",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "质量 QMS",
       "dms": "DMS",
@@ -252,8 +249,6 @@
     "logo": {
       "ci1": "托盘",
       "ci2": "控制",
-      "tx1": "TarifaX",
-      "tx2": "费率引擎",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

@@ -31,7 +31,6 @@
       "costos": "Costi",
       "consultas": "Consultazioni",
       "tablero": "Bacheca",
-      "motorTarifax": "Motore TarifaX",
       "despachoViajes": "Spedizione Viaggi",
       "generadoresCarga": "Generatori di Carico",
       "viajes": "Viaggi",
@@ -221,7 +220,6 @@
       "ingenieria": "Ingegneria",
       "demanda": "Domanda",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "Spedizione",
       "catalogos": "Cataloghi",
       "contabilidad": "Contabilità",
@@ -231,7 +229,6 @@
     },
     "ws": {
       "control": "Controllo Pallet",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "Qualità QMS",
       "dms": "DMS",
@@ -252,8 +249,6 @@
     "logo": {
       "ci1": "Controllo",
       "ci2": "Pallet",
-      "tx1": "TarifaX",
-      "tx2": "Motore Tariffe",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

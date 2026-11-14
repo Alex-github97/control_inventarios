@@ -45,7 +45,6 @@ PERMISOS_PERFIL: List[Permiso] = [
     Permiso("mantenimiento", "Mantenimiento",          "Operación"),
 
     # ── Módulos ───────────────────────────────────────────────────────────
-    Permiso("tx",   "TarifaX · Motor de tarifas",      "Módulos"),
     Permiso("ft",   "Fletes",                          "Módulos"),
     Permiso("gf",   "Gestión de flotas",               "Módulos"),
     Permiso("ml",   "Mantenimiento locativo",          "Módulos"),

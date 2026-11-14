@@ -9,7 +9,7 @@ fondo recorrían todas las empresas cada 10-60 s, tuvieran o no el módulo.
 
 LA REGLA
   · `MODULOS_SERVIDOR` vacío (por omisión) = se cargan todos, como siempre.
-  · Con una lista («eam,tarifax») se cargan esos, sus dependencias y «base».
+  · Con una lista («eam,wms») se cargan esos, sus dependencias y «base».
   · Una ruta de un módulo no cargado responde 404 con un mensaje claro (lo
     decide `acceso_modulos.py`), en vez de un 404 mudo.
   · Contratarle a una empresa un módulo que este servidor no carga no lo

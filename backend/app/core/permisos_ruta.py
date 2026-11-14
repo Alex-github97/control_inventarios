@@ -25,7 +25,7 @@ from typing import Optional, Tuple
 
 # Las claves de los módulos de operación: el Command Center resume todos, así
 # que lo ve quien tenga cualquiera (es la misma regla del portal).
-OPERACION = ("dashboard", "estibas", "movimientos", "manifiestos", "tx", "ft", "gf", "ml", "wms", "gh",
+OPERACION = ("dashboard", "estibas", "movimientos", "manifiestos", "ft", "gf", "ml", "wms", "gh",
              "tms", "dms", "qms", "grc", "lms", "crm", "eam", "mes", "aps", "erp", "scm", "sst", "ags",
              "pos", "reencauche", "mantenimiento", "vehiculos")
 
@@ -40,7 +40,6 @@ PREFIJOS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ("/dashboard", ("dashboard",)),
     ("/ubicaciones", ("ubicaciones",)),
     ("/consultas", ("consultas",)),
-    ("/tarifax", ("tx",)),
     ("/grc", ("grc",)),
     ("/qms", ("qms",)),
     ("/dms", ("dms",)),

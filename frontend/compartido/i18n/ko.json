@@ -31,7 +31,6 @@
       "costos": "비용",
       "consultas": "조회",
       "tablero": "대시보드",
-      "motorTarifax": "TarifaX 엔진",
       "despachoViajes": "운행 발송",
       "generadoresCarga": "화물 생성자",
       "viajes": "운행",
@@ -221,7 +220,6 @@
       "ingenieria": "엔지니어링",
       "demanda": "수요",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "발송",
       "catalogos": "카탈로그",
       "contabilidad": "회계",
@@ -231,7 +229,6 @@
     },
     "ws": {
       "control": "팔레트 관리",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "품질 QMS",
       "dms": "DMS",
@@ -252,8 +249,6 @@
     "logo": {
       "ci1": "팔레트",
       "ci2": "관리",
-      "tx1": "TarifaX",
-      "tx2": "요금 엔진",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

@@ -10,7 +10,7 @@ import {
   Add, Edit, Delete, AdminPanelSettings, Check, Close, Group,
   Inventory2, LocalShipping, DirectionsCar, Build, Warehouse, People,
   Route, Description, VerifiedUser, Policy, School, Business,
-  Construction, PrecisionManufacturing, BarChart, MonetizationOn, Remove,
+  Construction, PrecisionManufacturing, BarChart, Remove,
   Security, EventAvailable, PointOfSale,
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -48,11 +48,6 @@ const MODULE_GROUPS: ModuleGroup[] = [
       { key: 'costos',       label: 'Costos'       },
       { key: 'consultas',    label: 'Consultas'    },
     ],
-  },
-  {
-    key: 'tx', label: 'TarifaX', abbr: 'TX', color: '#D97706',
-    Icon: MonetizationOn,
-    perms: [{ key: 'tx', label: 'Motor TarifaX' }],
   },
   {
     key: 'ft', label: 'Fletes', abbr: 'FT', color: '#2563EB',

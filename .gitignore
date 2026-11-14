@@ -34,9 +34,6 @@ frontend/coverage/
 # Uploads de la app
 backend/uploads/
 
-# Archivos de datos grandes (TarifaX) — no subir al repositorio
-backend/data/TARIFARIO_SICETAC.xlsx
-
 # Docker
 *.log
 
@@ -56,10 +53,6 @@ Thumbs.db
 .env.prod
 backups/
 deploy/certbot/
-
-# La entrada automática del dominio de pruebas de TarifaX lleva la clave de su
-# cuenta: se genera en el servidor a partir de la plantilla y no se versiona.
-deploy/entrada-tarifax.js
 
 # Windows crea este archivo cuando algo redirige a `nul` desde un shell POSIX.
 # No es un archivo del proyecto y git ni siquiera lo puede indexar.

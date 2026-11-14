@@ -79,8 +79,6 @@ RUTAS = (
     ("dashboard", "router", "control"),
     ("alertas", "router", None),
     ("danos", "router", "control"),
-    ("tarifax", "router", "tarifax"),
-    ("tarifax_comparativo", "router", "tarifax"),
     ("mantenimiento", "router", "eam"),
     ("consultas", "router", "control"),
     ("fletes", "router", "tms"),

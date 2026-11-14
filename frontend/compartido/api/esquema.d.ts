@@ -9733,6 +9733,13 @@ export interface components {
              */
             severidad: string;
         };
+        /** HorasIn */
+        HorasIn: {
+            /** Activo Ids */
+            activo_ids: number[];
+            /** Horas Programadas Mes */
+            horas_programadas_mes?: number | null;
+        };
         /** IndicadorNeuResponse */
         IndicadorNeuResponse: {
             /** Ajustes */
@@ -13730,13 +13737,6 @@ export interface components {
             nombre: string;
             /** Plataforma */
             plataforma?: string | null;
-        };
-        /** HorasIn */
-        app__api__v1__endpoints__eam_config__HorasIn: {
-            /** Activo Ids */
-            activo_ids: number[];
-            /** Horas Programadas Mes */
-            horas_programadas_mes?: number | null;
         };
         /** TipoTrabajoResponse */
         app__api__v1__endpoints__eam_config__TipoTrabajoResponse: {
@@ -19455,7 +19455,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__api__v1__endpoints__eam_config__HorasIn"];
+                "application/json": components["schemas"]["HorasIn"];
             };
         };
         responses: {

@@ -105,27 +105,9 @@ COLUMNAS = [
     ("tms_vehiculo", "caja_largo_m", "DOUBLE PRECISION"),
     ("tms_vehiculo", "caja_ancho_m", "DOUBLE PRECISION"),
     ("tms_vehiculo", "caja_alto_m", "DOUBLE PRECISION"),
-    # TarifaX · comparativo (la misma mecánica de columnas nuevas en tablas existentes).
-    ("tarifax_comparaciones", "dpto_origen", "VARCHAR(120)"),
-    ("tarifax_comparaciones", "dpto_destino", "VARCHAR(120)"),
-    ("tarifax_comparaciones", "valor_hora", "DOUBLE PRECISION"),
-    ("tarifax_comparaciones", "tipo_tarifa", "VARCHAR(120)"),
-    ("tarifax_sicetac_periodos", "estado", "VARCHAR(12) DEFAULT 'LISTO' NOT NULL"),
-    ("tarifax_sicetac_periodos", "mensaje", "TEXT"),
-    ("tarifax_sicetac_periodos", "filas_leidas", "INTEGER"),
-    ("tarifax_sicetac_periodos", "filas_totales", "INTEGER"),
-    ("tarifax_comparaciones", "costo_mov", "DOUBLE PRECISION"),
-    ("tarifax_comparaciones", "horas_sicetac", "DOUBLE PRECISION"),
-    ("tarifax_comparaciones", "tipo_carga", "VARCHAR(60)"),
-    ("tarifax_comparaciones", "fecha_sicetac", "VARCHAR(10)"),
-    ("tarifax_negociaciones", "periodo", "VARCHAR(7)"),
-    ("tarifax_negociaciones", "vigencia_desde", "VARCHAR(7)"),
-    ("tarifax_negociaciones", "vigencia_hasta", "VARCHAR(7)"),
 ]
 
 INDICES = [
-    # Borrar tarifas negociadas revisa sus comparaciones (llave foránea).
-    "CREATE INDEX IF NOT EXISTS ix_tarifax_comp_negociacion ON tarifax_comparaciones (negociacion_id)",
     "CREATE INDEX IF NOT EXISTS ix_wms_mov_producto_fecha ON wms_movimientos_inventario (producto_id, created_at)",
     "CREATE INDEX IF NOT EXISTS ix_wms_mov_lote ON wms_movimientos_inventario (lote_id)",
     "CREATE INDEX IF NOT EXISTS ix_wms_mov_contenedor ON wms_movimientos_inventario (contenedor_id)",

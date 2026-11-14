@@ -76,7 +76,7 @@ def valores_fijos() -> dict:
 # Prefijo de tabla → módulo, solo para el informe. Lo que no aparece cae en
 # «base» (usuarios, roles, catálogos, alertas…).
 MODULO_DE_PREFIJO = [
-    ("tarifax_", "tarifax"), ("grc_", "grc"), ("qms_", "qms"), ("dms_", "dms"),
+    ("grc_", "grc"), ("qms_", "qms"), ("dms_", "dms"),
     ("tms_", "tms"), ("fletes", "tms"), ("vehiculos_flete", "tms"),
     ("generadores_carga", "tms"), ("enturnamiento", "tms"),
     ("conductores", "tms"), ("transportadoras", "tms"), ("contratos", "tms"),

@@ -211,13 +211,6 @@
 /sst/indicadores
 /sst/inspecciones
 /sst/riesgos
-/tarifax/almacenamiento
-/tarifax/cross-docking
-/tarifax/distancias
-/tarifax/logistica-inversa
-/tarifax/motor
-/tarifax/pop
-/tarifax/tablero
 /tms
 /tms/conductores
 /tms/config

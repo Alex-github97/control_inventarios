@@ -6,7 +6,7 @@ import {
 import {
   Visibility, VisibilityOff, LockOutlined, PersonOutline,
   Inventory2, LocalShipping, QrCode2, CheckCircle,
-  TableChart, TrendingUp, CompareArrows, CloudDownload,
+  TableChart,
   Route, AssignmentInd, QueuePlayNext, Schedule,
   DirectionsCar, Build, LocalGasStation, Description,
   Engineering, Shield, Bolt, Inventory2 as ActivoIcon2,
@@ -63,23 +63,6 @@ const MODULES = [
       { icon: <LocalShipping sx={{ fontSize: 17 }} />, text: 'Trazabilidad completa de movimientos' },
       { icon: <QrCode2 sx={{ fontSize: 17 }} />, text: 'Escaneo QR y RFID integrado' },
       { icon: <CheckCircle sx={{ fontSize: 17 }} />, text: 'Alertas automáticas y reportes de costos' },
-    ],
-  },
-  {
-    id: 'tx',
-    badge: 'TX',
-    appName: 'TarifaX',
-    appAccent: 'Motor de Tarifas',
-    headline: 'Cruces de tarifas',
-    headlineAccent: 'al instante',
-    description: 'Motor de cruce de fletes SICETAC.\nCompara y toma decisiones en segundos.',
-    color: COLOR_MODULO_SOBRE_OSCURO,
-    colorDark: PALETA.grafito,
-    features: [
-      { icon: <CompareArrows sx={{ fontSize: 17 }} />, text: 'Cruza los fletes con el × TARIFARIO_SICETAC en un clic' },
-      { icon: <TrendingUp sx={{ fontSize: 17 }} />, text: 'Métricas de coincidencia automáticas' },
-      { icon: <CloudDownload sx={{ fontSize: 17 }} />, text: 'Resultado descargable en Excel' },
-      { icon: <TableChart sx={{ fontSize: 17 }} />, text: 'Dashboard Power BI integrado para evaluar tendencias' },
     ],
   },
   {

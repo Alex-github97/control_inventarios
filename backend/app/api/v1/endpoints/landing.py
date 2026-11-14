@@ -131,7 +131,6 @@ CONTENIDO_INICIAL: Dict[str, Any] = {
         "GRC · Riesgo y Cumplimiento | /modulos/grc.html",
         "DMS · Gestión Documental | /modulos/dms.html",
         "CRM · Comercial | /modulos/crm.html",
-        "TarifaX · Motor de Tarifas | /modulos/tarifax.html",
         "SCM · Proveedores | /modulos/scm.html",
         "MES · Producción | /modulos/mes.html",
         "APS · Planeación | /modulos/aps.html",

@@ -31,7 +31,6 @@
       "costos": "Kosten",
       "consultas": "Abfragen",
       "tablero": "Tableau",
-      "motorTarifax": "TarifaX Motor",
       "despachoViajes": "Reiseversand",
       "generadoresCarga": "Ladungsgeneratoren",
       "viajes": "Reisen",
@@ -222,7 +221,6 @@
       "ingenieria": "Ingenieurwesen",
       "demanda": "Nachfrage",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "Versand",
       "catalogos": "Kataloge",
       "contabilidad": "Buchhaltung",
@@ -232,7 +230,6 @@
     },
     "ws": {
       "control": "Palettensteuerung",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "Qualität QMS",
       "dms": "DMS",
@@ -253,8 +250,6 @@
     "logo": {
       "ci1": "Steuerung der",
       "ci2": "Paletten",
-      "tx1": "TarifaX",
-      "tx2": "Tarifmotor",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

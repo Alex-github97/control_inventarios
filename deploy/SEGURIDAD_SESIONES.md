@@ -29,7 +29,7 @@ Las contraseñas pasan de bcrypt a Argon2id. La conversión es automática la pr
 ## Desplegar
 
 ```
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build redis backend tarifax_backend frontend
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build redis backend frontend
 ```
 
 `docker-compose.prod.yml` ya deja listo lo siguiente:
@@ -41,7 +41,6 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build red
 ## Después
 
 - **Ingreso:** entrar con un usuario real. La clave vieja sigue sirviendo; queda convertida en el primer ingreso.
-- **Clon de TarifaX:** abrir `tarifax-icoltrans.site`. La entrada automática abre una sesión nueva al cargar la página. Si la sesión vence por inactividad, al recargar vuelve a entrar sola.
 - **Memoria de Redis:**
 
   ```

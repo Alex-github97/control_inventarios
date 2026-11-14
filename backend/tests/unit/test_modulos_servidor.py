@@ -37,21 +37,20 @@ def solo_ga():
 
 
 def test_sin_variable_se_carga_todo(todo):
-    assert any(r.startswith("/tarifax") for r in todo["rutas"])
     assert any(r.startswith("/wms") for r in todo["rutas"])
     assert any(r.startswith("/eam/lube") for r in todo["rutas"])
     assert len(todo["rutas"]) > 300
 
 
 def test_solo_gestion_de_activos(solo_ga, todo):
-    prefijos_fuera = ("/tarifax", "/wms", "/erp", "/tms", "/crm", "/estibas", "/hcm", "/mes", "/pos")
+    prefijos_fuera = ("/wms", "/erp", "/tms", "/crm", "/estibas", "/hcm", "/mes", "/pos")
     assert not [r for r in solo_ga["rutas"] if r.startswith(prefijos_fuera)]
     # Lo de Gestión de Activos y lo básico sigue completo.
     for prefijo in ("/eam", "/lubricacion", "/flota", "/movil", "/auth", "/usuarios", "/plataforma", "/tittanbot"):
         assert [r for r in todo["rutas"] if r.startswith(prefijo)] == \
                [r for r in solo_ga["rutas"] if r.startswith(prefijo)], prefijo
     # Y lo pesado de otros módulos ni se importa.
-    assert not {"tarifax", "tarifax_comparativo", "movimientos", "hcm", "wms"} & set(solo_ga["archivos"])
+    assert not {"movimientos", "hcm", "wms", "crm"} & set(solo_ga["archivos"])
 
 
 def _con(valor, monkeypatch):
@@ -63,7 +62,7 @@ def test_dependencias_y_esenciales(monkeypatch):
     assert _con("", monkeypatch) is None
     assert _con("todos", monkeypatch) is None
     assert _con("reencauche", monkeypatch) == {"reencauche", "wms", "tms", "gh", "base"}
-    assert _con(" EAM , tarifax ", monkeypatch) == {"eam", "tarifax", "base"}
+    assert _con(" EAM , ags ", monkeypatch) == {"eam", "ags", "base"}
 
 
 def test_modulo_desconocido_carga_todo(monkeypatch):

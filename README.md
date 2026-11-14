@@ -17,7 +17,7 @@ control-inventarios/
 │   │   ├── application/        # Servicios y Schemas (Pydantic v2)
 │   │   ├── infrastructure/     # Modelos ORM, Repos, Integración SAP
 │   │   └── api/v1/             # Endpoints REST
-│   ├── data/                   # Archivos internos (TARIFARIO_SICETAC.xlsx, plantillas)
+│   ├── data/                   # Archivos internos (plantillas, archivos del DMS)
 │   ├── alembic/                # Migraciones de base de datos
 │   └── scripts/                # Seed y utilidades
 └── frontend/
@@ -63,22 +63,17 @@ cp .env.example .env
 # Editar .env con las credenciales del entorno
 ```
 
-### 3. Archivo base de TarifaX (no está en git por su tamaño)
-```
-Copiar TARIFARIO_SICETAC.xlsx en:  backend/data/TARIFARIO_SICETAC.xlsx
-```
-
-### 4. Levantar con Docker
+### 3. Levantar con Docker
 ```bash
 docker compose up -d
 ```
 
-### 5. Cargar datos iniciales
+### 4. Cargar datos iniciales
 ```bash
 docker compose exec backend python -m scripts.seed
 ```
 
-### 6. Acceder
+### 5. Acceder
 | Servicio | URL |
 |---------|-----|
 | Frontend | http://localhost:5173 |
@@ -108,7 +103,6 @@ La plataforma tiene 21 módulos con páginas y/o endpoints propios. **Existe una
 | Clave | Módulo | Color (Sidebar) | Color (Roles/permisos) |
 |-------|--------|------------------|-------------------------|
 | `ci` | Control de Inventarios | `#32AC5C` | `#16A34A` |
-| `tx` | TarifaX | `#369E4D` | `#D97706` |
 | `ft` | Fletes | `#F59E0B` | `#2563EB` |
 | `gf` | Gestión de Flotas | `#32AC5C` | `#7C3AED` |
 | `ml` | Locativa (ex "Mantenimiento Locativo") | `#0D9488` | `#EA580C` |
@@ -229,24 +223,6 @@ Módulo central de gestión de estibas, movimientos y logística de bodega.
 
 #### Consultas (`/consultas`)
 - Consultas avanzadas y reportes del módulo CI
-
----
-
-## TX — TarifaX
-
-Motor de cruce de tarifas migrado desde Streamlit a React/FastAPI.
-
-### Motor TarifaX (`/tarifax/motor`)
-Cruza el archivo del usuario (DF2) contra la base interna SICETAC (DF1) y descarga el resultado en Excel.
-
-| Parámetro | Valor |
-|-----------|-------|
-| Base interna (DF1) | `TARIFARIO_SICETAC.xlsx` |
-| Columna clave | `ORIGEN` |
-| Tipo de join | LEFT JOIN |
-| Columna calculada | `variacion_precio = TARIFA_CLIENTE / COSTO_TOTAL_VIAJE` |
-
-> `TARIFARIO_SICETAC.xlsx` **no está en git** (41 MB). Copiarlo manualmente a `backend/data/` en cada nuevo ambiente. Reiniciar el backend después de actualizarlo para refrescar el caché en memoria.
 
 ---
 
@@ -700,10 +676,6 @@ POST   /api/v1/roles/
 PUT    /api/v1/roles/{id}
 DELETE /api/v1/roles/{id}
 
-# TarifaX
-GET    /api/v1/tarifax/template
-POST   /api/v1/tarifax/merge
-
 # WMS — Catálogos configurables
 GET/POST/PUT/DELETE  /api/v1/wms/paises/
 GET/POST/PUT/DELETE  /api/v1/wms/ciudades/?pais_id=
@@ -791,7 +763,6 @@ DROP TYPE IF EXISTS rolusuario;
 - GZIP en respuestas
 - Redis para caché (preparado)
 - Soft-delete en ubicaciones y usuarios para preservar integridad referencial
-- TARIFARIO_SICETAC.xlsx en caché en memoria (evita releer 41 MB por cruce)
 
 ---
 

@@ -385,37 +385,8 @@ MODULOS = [
         ],
     },
     {
-        "clave": "tarifax",
-        "orden": "13",
-        "nombre": "TarifaX",
-        "titulo": "Motor de Tarifas",
-        "promesa": "La tarifa de un flete calculada en segundos, con la distancia real de la ruta.",
-        "problema": (
-            "Cotizar un flete toma media hora y depende de quién lo haga. Dos personas "
-            "cotizan distinto el mismo viaje, y nadie puede explicarle al cliente de "
-            "dónde salió el número."
-        ),
-        "capacidades": [
-            ("Cotización inmediata", "Origen, destino y tipo de vehículo; sale la tarifa con su desglose."),
-            ("Distancias reales", "La ruta se calcula, no se estima con una tabla vieja."),
-            ("Tarifas SICETAC", "Los tipos de vehículo y las referencias del sistema oficial."),
-            ("Cotización masiva", "Un archivo con cientos de rutas devuelve todas sus tarifas."),
-            ("Configuración propia", "Los factores y recargos de la empresa, no los de una plantilla."),
-            ("Mapeo de vehículos", "La flota propia contra los tipos oficiales, hecho una vez."),
-        ],
-        "conecta": (
-            "La tarifa calculada alimenta la cotización comercial y el viaje de "
-            "transporte, así que lo cotizado y lo facturado son el mismo número."
-        ),
-        "pantallas": [
-            "Una cotización con su desglose",
-            "La ruta calculada sobre el mapa",
-            "La cotización masiva por archivo",
-        ],
-    },
-    {
         "clave": "scm",
-        "orden": "14",
+        "orden": "13",
         "nombre": "SCM",
         "titulo": "Proveedores",
         "promesa": "Solicitudes, órdenes y evaluación de proveedores, con criterio y no con memoria.",
@@ -442,7 +413,7 @@ MODULOS = [
     },
     {
         "clave": "mes",
-        "orden": "15",
+        "orden": "14",
         "nombre": "MES",
         "titulo": "Producción",
         "promesa": "La planta en línea: órdenes, consumos, paradas y eficiencia real del equipo.",
@@ -472,7 +443,7 @@ MODULOS = [
     },
     {
         "clave": "aps",
-        "orden": "16",
+        "orden": "15",
         "nombre": "APS",
         "titulo": "Planeación",
         "promesa": "Pronóstico, capacidad y plan de abastecimiento, con escenarios que se comparan.",
@@ -501,7 +472,7 @@ MODULOS = [
     },
     {
         "clave": "ags",
-        "orden": "17",
+        "orden": "16",
         "nombre": "AGS",
         "titulo": "Agenda de Servicios",
         "promesa": "Citas, profesionales y cobro, para el negocio que trabaja con agenda.",

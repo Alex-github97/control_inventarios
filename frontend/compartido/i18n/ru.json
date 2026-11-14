@@ -31,7 +31,6 @@
       "costos": "Затраты",
       "consultas": "Запросы",
       "tablero": "Панель",
-      "motorTarifax": "Движок TarifaX",
       "despachoViajes": "Отправка рейсов",
       "generadoresCarga": "Грузоотправители",
       "viajes": "Рейсы",
@@ -221,7 +220,6 @@
       "ingenieria": "Инженерия",
       "demanda": "Спрос",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "Отправка",
       "catalogos": "Каталоги",
       "contabilidad": "Бухгалтерия",
@@ -231,7 +229,6 @@
     },
     "ws": {
       "control": "Контроль паллет",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "Качество QMS",
       "dms": "DMS",
@@ -252,8 +249,6 @@
     "logo": {
       "ci1": "Контроль",
       "ci2": "паллет",
-      "tx1": "TarifaX",
-      "tx2": "Движок тарифов",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

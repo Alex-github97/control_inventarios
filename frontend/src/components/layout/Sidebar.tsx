@@ -36,12 +36,6 @@ import {
   Shield as FlotaConfiabilidadIcon,
   ChevronLeft, ChevronRight,
   BarChart as TableroIcon,
-  MergeType as MotorIcon,
-  Route as DistanciasIcon,
-  Warehouse as AlmacenamientoIcon,
-  CompareArrows as CrossDockingIcon,
-  Storefront as PopIcon,
-  AssignmentReturn as LogInversaIcon,
   Monitor as TMSDashIconTMS,
   CalendarMonth as TMSPlaneacionIconTMS,
   AirportShuttle as TMSViajesIconTMS,
@@ -79,7 +73,6 @@ import {
   Map as WMSMapaIcon,
   RequestQuote as WMSFacturacionIcon,
   LocalShipping as WMSTrasladosIcon,
-  CompareArrows as ComparativoIcon,
   ManageAccounts as WMSConfigIcon,
   PeopleAlt as GHDashboardIcon,
   Groups as GHColaboradoresIcon,
@@ -280,7 +273,6 @@ const DRAWER_WIDTH      = 252
 const DRAWER_COLLAPSED  = 68
 const COMPACT_THRESHOLD = 140
 const CI_COLOR  = COLOR_MODULO_SOBRE_OSCURO
-const TX_COLOR  = COLOR_MODULO_SOBRE_OSCURO
 const CF_COLOR  = COLOR_MODULO_SOBRE_OSCURO
 const CC_COLOR  = COLOR_MODULO_SOBRE_OSCURO
 const FT_COLOR  = COLOR_MODULO_SOBRE_OSCURO
@@ -329,16 +321,6 @@ const CI_NAV_ITEMS: NavItem[] = [
   { label: 'nav.consultas',     icon: <ConsultasIcon     fontSize="small" />, path: '/consultas',     section: 'section.control' },
 ]
 
-const TX_NAV_ITEMS: NavItem[] = [
-  { label: 'nav.tablero',      icon: <TableroIcon fontSize="small" />, path: '/tarifax/tablero', section: 'section.tarifax' },
-  { label: 'nav.comparativoSicetac', icon: <ComparativoIcon fontSize="small" />, path: '/tarifax/comparativo', section: 'section.tarifax' },
-  { label: 'nav.motorTarifax', icon: <MotorIcon   fontSize="small" />, path: '/tarifax/motor',   section: 'section.tarifax' },
-  { label: 'nav.distancias',   icon: <DistanciasIcon fontSize="small" />, path: '/tarifax/distancias', section: 'section.tarifax' },
-  { label: 'nav.almacenamiento', icon: <AlmacenamientoIcon fontSize="small" />, path: '/tarifax/almacenamiento', section: 'section.tarifax' },
-  { label: 'nav.crossDocking', icon: <CrossDockingIcon fontSize="small" />, path: '/tarifax/cross-docking', section: 'section.tarifax' },
-  { label: 'nav.pop', icon: <PopIcon fontSize="small" />, path: '/tarifax/pop', section: 'section.tarifax' },
-  { label: 'nav.logisticaInversa', icon: <LogInversaIcon fontSize="small" />, path: '/tarifax/logistica-inversa', section: 'section.tarifax' },
-]
 
 const FT_NAV_ITEMS: NavItem[] = [
   { label: 'nav.despachoViajes',   icon: <FletesDespachoIcon    fontSize="small" />, path: '/fletes',             section: 'section.despacho', exact: true },
@@ -679,7 +661,6 @@ const RTM_NAV_ITEMS: NavItem[] = [
 ]
 const RTM_SECTIONS = ['section.general', 'section.produccion', 'section.calidad', 'section.logistica', 'section.analitica', 'section.sistema']
 const CI_SECTIONS     = ['section.principal', 'section.operaciones', 'section.recursos', 'section.control']
-const TX_SECTIONS     = ['section.tarifax']
 const FT_SECTIONS     = ['section.despacho', 'section.catalogos']
 const CONFIG_SECTIONS = ['section.administracion']
 const CC_SECTIONS     = ['section.dashboards']
@@ -752,7 +733,6 @@ export function moduloDeRuta(
   const isTMS      = location.pathname.startsWith('/tms') || location.pathname.startsWith('/fletes')
   const isFletes   = false // absorbed by isTMS
   const isFlota    = location.pathname.startsWith('/flota')
-  const isTarifax  = location.pathname.startsWith('/tarifax')
   const isConfig   = esRutaPlataforma(location.pathname)
   const isCommand  = location.pathname.startsWith('/command-center')
   const isLocativa = location.pathname.startsWith('/locativa')
@@ -770,13 +750,13 @@ export function moduloDeRuta(
   const isPOS      = location.pathname.startsWith('/pos')
   const isRTM      = location.pathname.startsWith('/reencauche')
 
-  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isTarifax ? TX_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : isERP ? ERP_COLOR : isSCM ? SCM_COLOR : isSST ? SST_COLOR : isAGS ? AGS_COLOR : isPOS ? POS_COLOR : isRTM ? RTM_COLOR : CI_COLOR
-  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isTarifax ? TX_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : isERP ? ERP_NAV_ITEMS : isSCM ? SCM_NAV_ITEMS : isSST ? SST_NAV_ITEMS : isAGS ? AGS_NAV_ITEMS : isPOS ? POS_NAV_ITEMS : isRTM ? RTM_NAV_ITEMS : visibleCIItems
-  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isTarifax ? TX_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : isAPS ? APS_SECTIONS : isERP ? ERP_SECTIONS : isSCM ? SCM_SECTIONS : isSST ? SST_SECTIONS : isAGS ? AGS_SECTIONS : isPOS ? POS_SECTIONS : isRTM ? RTM_SECTIONS : CI_SECTIONS
+  const activeColor = isCommand ? CC_COLOR : isConfig ? CF_COLOR : isGRC ? GRC_COLOR : isQMS ? QMS_COLOR : isDMS ? DMS_COLOR : isTMS ? TMS_COLOR : isFletes ? FT_COLOR : isFlota ? GF_COLOR : isLocativa ? ML_COLOR : isWMS ? WMS_COLOR : isGH ? GH_COLOR : isLMS ? LMS_COLOR : isCRM ? CRM_COLOR : isEAM ? EAM_COLOR : isMES ? MES_COLOR : isAPS ? APS_COLOR : isERP ? ERP_COLOR : isSCM ? SCM_COLOR : isSST ? SST_COLOR : isAGS ? AGS_COLOR : isPOS ? POS_COLOR : isRTM ? RTM_COLOR : CI_COLOR
+  const navItems    = isCommand ? CC_NAV_ITEMS : isConfig ? CONFIG_NAV_ITEMS : isGRC ? GRC_NAV_ITEMS : isQMS ? QMS_NAV_ITEMS : isDMS ? DMS_NAV_ITEMS : isTMS ? TMS_NAV_ITEMS : isFletes ? FT_NAV_ITEMS : isFlota ? GF_NAV_ITEMS : isLocativa ? ML_NAV_ITEMS : isWMS ? WMS_NAV_ITEMS : isGH ? GH_NAV_ITEMS : isLMS ? LMS_NAV_ITEMS : isCRM ? CRM_NAV_ITEMS : isEAM ? EAM_NAV_ITEMS : isMES ? MES_NAV_ITEMS : isAPS ? APS_NAV_ITEMS : isERP ? ERP_NAV_ITEMS : isSCM ? SCM_NAV_ITEMS : isSST ? SST_NAV_ITEMS : isAGS ? AGS_NAV_ITEMS : isPOS ? POS_NAV_ITEMS : isRTM ? RTM_NAV_ITEMS : visibleCIItems
+  const sections    = isCommand ? CC_SECTIONS  : isConfig ? CONFIG_SECTIONS  : isGRC ? GRC_SECTIONS  : isQMS ? QMS_SECTIONS  : isDMS ? DMS_SECTIONS  : isTMS ? TMS_SECTIONS  : isFletes ? FT_SECTIONS  : isFlota ? GF_SECTIONS  : isLocativa ? ML_SECTIONS  : isWMS ? WMS_SECTIONS : isGH ? GH_SECTIONS : isLMS ? LMS_SECTIONS : isCRM ? CRM_SECTIONS : isEAM ? EAM_SECTIONS : isMES ? MES_SECTIONS : isAPS ? APS_SECTIONS : isERP ? ERP_SECTIONS : isSCM ? SCM_SECTIONS : isSST ? SST_SECTIONS : isAGS ? AGS_SECTIONS : isPOS ? POS_SECTIONS : isRTM ? RTM_SECTIONS : CI_SECTIONS
 
-  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isTarifax ? 'TX' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'GA' : isMES ? 'MES' : isAPS ? 'APS' : isERP ? 'ERP' : isSCM ? 'SCM' : isSST ? 'SST' : isAGS ? 'AGS' : isPOS ? 'POS' : isRTM ? 'RTM' : 'CE'
-  const logoLine1 = isCommand ? t('logo.cc1') : isConfig ? t('logo.cfg1') : isTarifax ? t('logo.tx1') : isGRC ? t('logo.grc1') : isQMS ? t('logo.qms1') : isDMS ? t('logo.dms1') : isTMS ? t('logo.tms1') : isFletes ? t('logo.ft1') : isFlota ? t('logo.gf1') : isLocativa ? t('logo.ml1') : isWMS ? t('logo.wms1') : isGH ? t('logo.gh1') : isLMS ? t('logo.lms1') : isCRM ? t('logo.crm1') : isEAM ? t('logo.eam1') : isMES ? t('logo.mes1') : isAPS ? t('logo.aps1') : isERP ? t('logo.erp1') : isSCM ? t('logo.scm1') : isSST ? t('logo.sst1') : isAGS ? t('logo.ags1') : isPOS ? t('logo.pos1') : isRTM ? t('logo.rtm1') : t('logo.ci1')
-  const logoLine2 = isCommand ? t('logo.cc2') : isConfig ? t('logo.cfg2') : isTarifax ? t('logo.tx2') : isGRC ? t('logo.grc2') : isQMS ? t('logo.qms2') : isDMS ? t('logo.dms2') : isTMS ? t('logo.tms2') : isFletes ? t('logo.ft2') : isFlota ? t('logo.gf2') : isLocativa ? t('logo.ml2') : isWMS ? t('logo.wms2') : isGH ? t('logo.gh2') : isLMS ? t('logo.lms2') : isCRM ? t('logo.crm2') : isEAM ? t('logo.eam2') : isMES ? t('logo.mes2') : isAPS ? t('logo.aps2') : isERP ? t('logo.erp2') : isSCM ? t('logo.scm2') : isSST ? t('logo.sst2') : isAGS ? t('logo.ags2') : isPOS ? t('logo.pos2') : isRTM ? t('logo.rtm2') : t('logo.ci2')
+  const logoShort = isCommand ? 'CC' : isConfig ? 'CF' : isGRC ? 'GRC' : isQMS ? 'QMS' : isDMS ? 'DMS' : isTMS ? 'TMS' : isFletes ? 'FT' : isFlota ? 'GF' : isLocativa ? 'ML' : isWMS ? 'WMS' : isGH ? 'GH' : isLMS ? 'LMS' : isCRM ? 'CRM' : isEAM ? 'GA' : isMES ? 'MES' : isAPS ? 'APS' : isERP ? 'ERP' : isSCM ? 'SCM' : isSST ? 'SST' : isAGS ? 'AGS' : isPOS ? 'POS' : isRTM ? 'RTM' : 'CE'
+  const logoLine1 = isCommand ? t('logo.cc1') : isConfig ? t('logo.cfg1') : isGRC ? t('logo.grc1') : isQMS ? t('logo.qms1') : isDMS ? t('logo.dms1') : isTMS ? t('logo.tms1') : isFletes ? t('logo.ft1') : isFlota ? t('logo.gf1') : isLocativa ? t('logo.ml1') : isWMS ? t('logo.wms1') : isGH ? t('logo.gh1') : isLMS ? t('logo.lms1') : isCRM ? t('logo.crm1') : isEAM ? t('logo.eam1') : isMES ? t('logo.mes1') : isAPS ? t('logo.aps1') : isERP ? t('logo.erp1') : isSCM ? t('logo.scm1') : isSST ? t('logo.sst1') : isAGS ? t('logo.ags1') : isPOS ? t('logo.pos1') : isRTM ? t('logo.rtm1') : t('logo.ci1')
+  const logoLine2 = isCommand ? t('logo.cc2') : isConfig ? t('logo.cfg2') : isGRC ? t('logo.grc2') : isQMS ? t('logo.qms2') : isDMS ? t('logo.dms2') : isTMS ? t('logo.tms2') : isFletes ? t('logo.ft2') : isFlota ? t('logo.gf2') : isLocativa ? t('logo.ml2') : isWMS ? t('logo.wms2') : isGH ? t('logo.gh2') : isLMS ? t('logo.lms2') : isCRM ? t('logo.crm2') : isEAM ? t('logo.eam2') : isMES ? t('logo.mes2') : isAPS ? t('logo.aps2') : isERP ? t('logo.erp2') : isSCM ? t('logo.scm2') : isSST ? t('logo.sst2') : isAGS ? t('logo.ags2') : isPOS ? t('logo.pos2') : isRTM ? t('logo.rtm2') : t('logo.ci2')
 
   const logoGradient = isConfig
     ? `linear-gradient(135deg, ${CF_COLOR} 0%, #4F46E5 100%)`
@@ -820,7 +800,7 @@ export function moduloDeRuta(
     ? `linear-gradient(135deg, ${POS_COLOR} 0%, #14532D 100%)`
     : isRTM
     ? `linear-gradient(135deg, ${RTM_COLOR} 0%, #3F2A14 100%)`
-    : `linear-gradient(135deg, ${activeColor} 0%, ${isTarifax ? '#1f6130' : '#1A1A1A'} 100%)`
+    : `linear-gradient(135deg, ${activeColor} 0%, #1A1A1A 100%)`
 
   return { navItems, sections, activeColor, logoShort, logoLine1, logoLine2, logoGradient }
 }

@@ -31,7 +31,6 @@
       "costos": "Custos",
       "consultas": "Consultas",
       "tablero": "Painel",
-      "motorTarifax": "Motor TarifaX",
       "despachoViajes": "Despacho de Viagens",
       "generadoresCarga": "Geradores de Carga",
       "viajes": "Viagens",
@@ -221,7 +220,6 @@
       "ingenieria": "Engenharia",
       "demanda": "Demanda",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "Despacho",
       "catalogos": "Catálogos",
       "contabilidad": "Contabilidade",
@@ -231,7 +229,6 @@
     },
     "ws": {
       "control": "Controle de Estivas",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "Qualidade QMS",
       "dms": "DMS",
@@ -252,8 +249,6 @@
     "logo": {
       "ci1": "Controle de",
       "ci2": "Estivas",
-      "tx1": "TarifaX",
-      "tx2": "Motor de Tarifas",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

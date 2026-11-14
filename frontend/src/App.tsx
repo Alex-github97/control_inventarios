@@ -28,7 +28,6 @@ const ROUTE_PERM_MAP: Record<string, string> = {
   '/mantenimiento':'mantenimiento',
   '/costos':       'costos',
   '/consultas':    'consultas',
-  '/tarifax':      'tx',
   '/fletes':       'ft',
   '/flota':        'gf',
   '/locativa':     'ml',
@@ -95,14 +94,6 @@ const Danos = React.lazy(() => import('@/pages/Danos'))
 const Trazabilidad = React.lazy(() => import('@/pages/Trazabilidad'))
 const EstibasCargaMasiva = React.lazy(() => import('@/pages/EstibasCargaMasiva'))
 const MovimientosCargaMasiva = React.lazy(() => import('@/pages/MovimientosCargaMasiva'))
-const TarifaxDashboard = React.lazy(() => import('@/pages/TarifaxDashboard'))
-const TarifaxComparativo = React.lazy(() => import('@/pages/TarifaxComparativo'))
-const TarifaxMotor = React.lazy(() => import('@/pages/TarifaxMotor'))
-const TarifaxDistancias = React.lazy(() => import('@/pages/TarifaxDistancias'))
-const TarifaxAlmacenamiento = React.lazy(() => import('@/pages/TarifaxAlmacenamiento'))
-const TarifaxCrossDocking = React.lazy(() => import('@/pages/TarifaxCrossDocking'))
-const TarifaxPOP = React.lazy(() => import('@/pages/TarifaxPOP'))
-const TarifaxLogisticaInversa = React.lazy(() => import('@/pages/TarifaxLogisticaInversa'))
 const Usuarios = React.lazy(() => import('@/pages/Usuarios'))
 const Roles = React.lazy(() => import('@/pages/Roles'))
 const CommandCenter = React.lazy(() => import('@/pages/CommandCenter'))
@@ -412,7 +403,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (matchedPrefix) {
     const key = ROUTE_PERM_MAP[matchedPrefix]
     if (!user.permisos[key]) {
-      // El tablero general sin permiso: al espacio que sí tiene (p. ej. TarifaX).
+      // El tablero general sin permiso: al espacio que sí tiene (p. ej. Gestión de Activos).
       const inicio = rutaInicial(user)
       if (location.pathname.startsWith('/dashboard') && inicio !== '/dashboard') return <Navigate to={inicio} replace />
       return <Navigate to="/sin-acceso" replace />
@@ -580,14 +571,6 @@ export default function App() {
             <Route path="/locativa/riesgos" element={<ProtectedRoute><LocativaRiesgos /></ProtectedRoute>} />
             <Route path="/locativa/energia" element={<ProtectedRoute><LocativaEnergia /></ProtectedRoute>} />
             <Route path="/locativa/config" element={<ProtectedRoute><LocativaConfig /></ProtectedRoute>} />
-            <Route path="/tarifax/tablero" element={<ProtectedRoute><TarifaxDashboard /></ProtectedRoute>} />
-            <Route path="/tarifax/comparativo" element={<ProtectedRoute><TarifaxComparativo /></ProtectedRoute>} />
-            <Route path="/tarifax/motor" element={<ProtectedRoute><TarifaxMotor /></ProtectedRoute>} />
-            <Route path="/tarifax/distancias" element={<ProtectedRoute><TarifaxDistancias /></ProtectedRoute>} />
-            <Route path="/tarifax/almacenamiento" element={<ProtectedRoute><TarifaxAlmacenamiento /></ProtectedRoute>} />
-            <Route path="/tarifax/cross-docking" element={<ProtectedRoute><TarifaxCrossDocking /></ProtectedRoute>} />
-            <Route path="/tarifax/pop" element={<ProtectedRoute><TarifaxPOP /></ProtectedRoute>} />
-            <Route path="/tarifax/logistica-inversa" element={<ProtectedRoute><TarifaxLogisticaInversa /></ProtectedRoute>} />
             <Route path="/wms" element={<ProtectedRoute><WMSDashboard /></ProtectedRoute>} />
             <Route path="/wms/recepcion" element={<ProtectedRoute><WMSRecepcion /></ProtectedRoute>} />
             <Route path="/wms/inventario" element={<ProtectedRoute><WMSInventario /></ProtectedRoute>} />

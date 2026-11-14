@@ -23,7 +23,6 @@ MODULOS: List[Modulo] = [
     Modulo("control", "Control de Estibas",
            ("/estibas", "/movimientos", "/manifiestos", "/danos", "/trazabilidad",
             "/dashboard", "/ubicaciones", "/consultas", "/scan-sessions")),
-    Modulo("tarifax", "TarifaX · Motor de Tarifas", ("/tarifax",)),
     Modulo("grc",     "GRC · Riesgo y Cumplimiento", ("/grc",)),
     Modulo("qms",     "QMS · Calidad", ("/qms",)),
     Modulo("dms",     "DMS · Gestión Documental", ("/dms",)),

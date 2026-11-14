@@ -87,7 +87,6 @@ const TOMAS = [
   ['crm',  2, '/crm/oportunidades',    'El embudo por etapa'],
   ['crm',  3, '/crm/cotizaciones',     'Las cotizaciones'],
 
-  ['tarifax', 1, '/tarifax',           'El motor de tarifas'],
 
   ['scm',  1, '/scm',                  'El tablero de proveedores'],
   ['scm',  2, '/erp/compras',          'Las requisiciones y órdenes de compra'],

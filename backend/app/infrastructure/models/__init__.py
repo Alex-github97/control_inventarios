@@ -231,10 +231,6 @@ __all__ = [
     "TipoVehiculoFlete", "TipoCarroceria", "EstadoFlete", "EstadoEnturnamiento",
 ]
 
-from app.infrastructure.models.tarifax import (  # noqa: F401
-    TarifaxNegociacion, TarifaxSicetacPeriodo, TarifaxComparacion, TarifaxAliasCiudad, TarifaxHoraLogistica, TarifaxAjuste,
-)
-
 # Compras por cotización y canales de venta en línea.
 from app.infrastructure.models.compras import (  # noqa: F401,E402
     WMSSolicitudCotizacion, WMSSolicitudItem, WMSSolicitudProveedor, WMSSolicitudLinea, CorreoEnvio,

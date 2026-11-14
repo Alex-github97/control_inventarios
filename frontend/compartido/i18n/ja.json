@@ -31,7 +31,6 @@
       "costos": "コスト",
       "consultas": "照会",
       "tablero": "ボード",
-      "motorTarifax": "TarifaX エンジン",
       "despachoViajes": "旅行手配",
       "generadoresCarga": "貨物発生者",
       "viajes": "旅行",
@@ -221,7 +220,6 @@
       "ingenieria": "エンジニアリング",
       "demanda": "需要",
       "supply": "Supply",
-      "tarifax": "TarifaX",
       "despacho": "手配",
       "catalogos": "カタログ",
       "contabilidad": "会計",
@@ -231,7 +229,6 @@
     },
     "ws": {
       "control": "パレット管理",
-      "tarifax": "TarifaX",
       "grc": "GRC",
       "qms": "品質 QMS",
       "dms": "DMS",
@@ -252,8 +249,6 @@
     "logo": {
       "ci1": "管理",
       "ci2": "パレット",
-      "tx1": "TarifaX",
-      "tx2": "運賃エンジン",
       "grc1": "Governance",
       "grc2": "Risk & Compliance",
       "qms1": "Quality",

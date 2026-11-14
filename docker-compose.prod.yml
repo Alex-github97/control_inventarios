@@ -71,8 +71,7 @@ services:
       --workers ${UVICORN_WORKERS:-4} --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - uploads:/app/uploads
-      # La configuración de TarifaX (equivalencias de vehículos, plataformas,
-      # tarifario SICETAC cargado por botón) se guarda en archivos de data/.
+      # Lo que la aplicación guarda en archivos de data/ (p. ej. los del DMS).
       # Sin volumen, cada despliegue recrea el contenedor y borra lo que la
       # gente guardó desde las pantallas. El volumen se llena con lo del
       # repositorio solo la primera vez; desde ahí manda lo de las pantallas, y
@@ -95,57 +94,6 @@ services:
     container_name: prod_frontend
     restart: always
 
-  # ── El clon de TarifaX para el dominio de pruebas ────────────────────────
-  #
-  # Misma imagen que producción; ni una línea de código distinta. Lo que
-  # cambia es que tiene su propio `data/`, que es donde TarifaX guarda su
-  # configuración —plataformas, mapeo de vehículos, parámetros de cotización—.
-  # Compartirlo haría que cualquier prueba del equipo quedara aplicada en la
-  # cotización real de Icoltrans.
-  #
-  # Comparte Postgres: la empresa de pruebas vive en su propio esquema y solo
-  # tiene contratado el módulo TarifaX, así que no alcanza la operación real.
-  tarifax_backend:
-    image: tittanware-backend
-    container_name: tarifax_backend
-    restart: always
-    env_file: .env.prod
-    environment:
-      ENVIRONMENT: production
-      DEBUG: "false"
-      # Las sesiones de usuario viven en Redis y sin él nadie entra (falla
-      # cerrado). Se fija aquí para no depender de que .env.prod lo traiga.
-      REDIS_SESIONES_URL: redis://redis:6379/1
-      # Este clon solo sirve TarifaX: no carga el código de los demás módulos
-      # ni corre sus tareas de fondo (unos 440 MB menos, medido 2026-11-13).
-      MODULOS_SERVIDOR: tarifax
-    # Un solo proceso, y no por ahorrar núcleos: TarifaX guarda el tarifario
-    # de 21 MB en memoria de CADA worker, y el primer llamado de cada uno
-    # tarda unos cuarenta segundos en cargarlo. Con uno solo se carga una vez,
-    # ocupa la mitad y no le quita aire a la operación real.
-    command: >
-      uvicorn app.main:app --host 0.0.0.0 --port 8000
-      --workers 1 --proxy-headers --forwarded-allow-ips='*'
-    volumes:
-      - tarifax_data:/app/data
-      - tarifax_uploads:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
-  tarifax_frontend:
-    image: tittanware-frontend
-    container_name: tarifax_frontend
-    restart: always
-    volumes:
-      # El portal es el mismo paquete; esta configuración solo le inyecta al
-      # vuelo el guion que abre la sesión de pruebas.
-      - ./deploy/tarifax-frontend.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./deploy/entrada-tarifax.js:/etc/nginx/entrada-tarifax.js:ro
-      - ./deploy/favicon-tarifax.svg:/etc/nginx/favicon-tarifax.svg:ro
-
   proxy:
     image: nginx:alpine
     container_name: prod_proxy
@@ -159,18 +107,13 @@ services:
       DOMINIO: ${DOMINIO}
       # Los nombres por los que se atiende. Si no se define, solo el principal.
       DOMINIOS: ${DOMINIOS:-${DOMINIO}}
-      # El dominio de pruebas de TarifaX, con su propia plantilla.
-      DOMINIO_TARIFAX: ${DOMINIO_TARIFAX}
     volumes:
       - ./deploy/nginx-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./deploy/nginx-tarifax.conf.template:/etc/nginx/templates/tarifax.conf.template:ro
       - ./deploy/certbot/conf:/etc/letsencrypt:ro
       - ./deploy/certbot/www:/var/www/certbot:ro
     depends_on:
       - backend
       - frontend
-      - tarifax_backend
-      - tarifax_frontend
 
   # Renueva el certificado. Despierta cada 12 h porque Let's Encrypt renueva
   # dentro de los 30 días previos al vencimiento, no en una fecha fija.
@@ -187,12 +130,8 @@ services:
 
 volumes:
   pgdata:
-  # El data/ del backend principal: la configuración de TarifaX hecha desde
-  # las pantallas sobrevive a los despliegues.
+  # El data/ del backend principal (archivos del DMS, entre otros): sobrevive
+  # a los despliegues.
   backend_data:
-  # El `data/` propio del clon de TarifaX: su configuración no se
-  # mezcla con la de producción, y sobrevive a los despliegues.
-  tarifax_data:
-  tarifax_uploads:
   redisdata:
   uploads:

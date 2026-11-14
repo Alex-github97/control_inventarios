@@ -53,7 +53,7 @@ WHERE NOT EXISTS (SELECT 1 FROM public.plataforma_cliente WHERE codigo = '${CODI
 INSERT INTO public.plataforma_modulo_cliente (cliente_id, modulo, activo, desde)
 SELECT c.id, m.modulo, true, current_date
 FROM public.plataforma_cliente c
-CROSS JOIN (VALUES ('control'), ('tarifax'), ('grc'), ('qms'), ('dms'), ('tms'),
+CROSS JOIN (VALUES ('control'), ('grc'), ('qms'), ('dms'), ('tms'),
                    ('eam'), ('ags'), ('pos'), ('wms'), ('gh'), ('command'), ('lms'),
                    ('crm'), ('mes'), ('aps'), ('erp'), ('scm'), ('sst'), ('locativa'),
                    ('base')) AS m(modulo)

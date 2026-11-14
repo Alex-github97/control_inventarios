@@ -9,7 +9,6 @@ import { esRutaPlataforma } from './rutasPlataforma'
 // Claves de permiso requeridas por workspace (vacío = siempre visible)
 const WORKSPACE_PERM_KEYS: Record<string, string[]> = {
   control:  ['dashboard','estibas','movimientos','manifiestos','vehiculos','ubicaciones','proveedores','alertas','danos','trazabilidad','mantenimiento','costos','consultas'],
-  tarifax:  ['tx'],
   grc:      ['grc'],
   qms:      ['qms'],
   dms:      ['dms'],
@@ -41,7 +40,6 @@ const MODULO_DE_WORKSPACE: Record<string, string> = {
 
 const PANEL_BG         = '#0D0D0D'
 const CI_COLOR         = COLOR_MODULO_SOBRE_OSCURO
-const TX_COLOR         = COLOR_MODULO_SOBRE_OSCURO
 const CF_COLOR         = COLOR_MODULO_SOBRE_OSCURO
 const CC_COLOR         = COLOR_MODULO_SOBRE_OSCURO
 const GF_COLOR         = COLOR_MODULO_SOBRE_OSCURO
@@ -74,20 +72,11 @@ export const WORKSPACES = [
     path:  '/dashboard',
     isActive: (p: string) =>
       !esRutaPlataforma(p) && !p.startsWith('/scm') && !p.startsWith('/sst') && !p.startsWith('/pos') && !p.startsWith('/reencauche') &&
-      !p.startsWith('/tarifax') &&
       !p.startsWith('/command-center') && !p.startsWith('/fletes') &&
       !p.startsWith('/tms') && !p.startsWith('/dms') && !p.startsWith('/qms') &&
       !p.startsWith('/grc') && !p.startsWith('/flota') && !p.startsWith('/locativa') &&
       !p.startsWith('/wms') && !p.startsWith('/gh') && !p.startsWith('/lms') &&
       !p.startsWith('/crm') && !p.startsWith('/eam') && !p.startsWith('/mes') && !p.startsWith('/aps') && !p.startsWith('/erp') && !p.startsWith('/ags'),
-  },
-  {
-    id:    'tarifax',
-    label: 'ws.tarifax',
-    short: 'TX',
-    color: TX_COLOR,
-    path:  '/tarifax/tablero',
-    isActive: (p: string) => p.startsWith('/tarifax'),
   },
   {
     id:    'grc',
@@ -244,10 +233,10 @@ export const WORKSPACES = [
 ]
 
 // El Command Center resume la operación de los módulos: solo lo ve quien tiene
-// permiso en alguno. Un perfil que solo tiene TarifaX (o solo administra la
-// configuración) no tiene nada que ver ahí.
+// permiso en alguno. Un perfil que solo administra la
+// configuración no tiene nada que ver ahí.
 const CLAVES_OPERACION = Object.entries(WORKSPACE_PERM_KEYS)
-  .filter(([id]) => !['tarifax', 'config', 'command'].includes(id))
+  .filter(([id]) => !['config', 'command'].includes(id))
   .flatMap(([, claves]) => claves)
 
 export const puedeVerCommandCenter = (permisos?: Record<string, boolean>) =>
@@ -255,7 +244,7 @@ export const puedeVerCommandCenter = (permisos?: Record<string, boolean>) =>
 
 /** A dónde entra un usuario al iniciar sesión: el tablero general si su
  *  empresa contrató Control de Estibas y él lo puede ver; si no, el primer
- *  espacio contratado al que tiene acceso (p. ej. el CMMS o TarifaX). Antes el
+ *  espacio contratado al que tiene acceso (p. ej. Gestión de Activos). Antes el
  *  administrador siempre caía en el tablero de estibas, aunque su empresa solo
  *  tuviera el CMMS. */
 export function rutaInicial(
