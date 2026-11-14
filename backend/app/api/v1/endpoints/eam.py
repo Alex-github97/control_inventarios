@@ -1,3 +1,5 @@
+import asyncio
+import json
 import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -7,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, and_, or_, update, true, literal, union_all, cast as sa_cast, Integer, String, Float
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_respuestas import en_cache
 from app.core.database import get_db
 from app.core.paginacion import contar, pagina, poner_total
 from app.core.neumaticos_filtros import FiltrosLlanta, aplicar as aplicar_filtros_llanta, filtros_llanta
@@ -5732,6 +5735,7 @@ def _filtro_busqueda_llanta(q, busqueda: Optional[str]):
 
 
 @router.get("/neumaticos", response_model=List[NeumaticResponse])
+@en_cache(minutos=10)
 async def list_neumaticos(
     respuesta: Response,
     estado: Optional[str] = None,
@@ -5766,7 +5770,55 @@ async def list_neumaticos(
     elif ubicacion == "BOD":
         q = q.where(N.bodega_id.isnot(None))
     q = _filtro_busqueda_llanta(q, busqueda)
-    return await pagina(db, q.order_by(N.codigo), respuesta, limite, desplazamiento)
+    return await _llantas_como_json(db, q.order_by(N.codigo), limite, desplazamiento)
+
+
+def _campos_llanta():
+    """(nombre, columna o None, valor por omisión, convertir) de cada campo de
+    `NeumaticResponse`, en su orden."""
+    campos = []
+    for nombre, campo in NeumaticResponse.model_fields.items():
+        tipo = str(campo.annotation)
+        convertir = float if "float" in tipo else (lambda v: v.isoformat()) if "date" in tipo else None
+        campos.append((nombre, getattr(EAMNeumatico, nombre, None), campo.default, convertir))
+    return campos
+
+
+async def _llantas_como_json(db: AsyncSession, consulta, limite: Optional[int], desplazamiento: int) -> Response:
+    """La lista de llantas armada directo desde las columnas.
+
+    Pasar cada llanta por el objeto ORM y por el modelo de respuesta costaba
+    6 s con cien mil llantas; la pantalla de llantas pide todas las activas al
+    abrir. El JSON que sale es el mismo que armaba `response_model` (mismos
+    campos, mismo orden, mismos formatos): se comparó byte a byte.
+    """
+    respuesta = Response(media_type="application/json")
+    poner_total(respuesta, await contar(db, consulta), limite, desplazamiento)
+    campos = _campos_llanta()
+    consulta = consulta.with_only_columns(*[c for _, c, _, _ in campos if c is not None])
+    if desplazamiento:
+        consulta = consulta.offset(desplazamiento)
+    if limite is not None:
+        consulta = consulta.limit(limite)
+    filas = (await db.execute(consulta)).all()
+
+    def armar() -> bytes:
+        nombres = [(n, i, d, f) for i, (n, d, f) in enumerate(
+            (n, d, f) for n, c, d, f in campos if c is not None)]
+        fijos = {n: d for n, c, d, _ in campos if c is None}
+        orden = [n for n, _, _, _ in campos]
+        salida = []
+        for fila in filas:
+            d = dict(fijos)
+            for n, i, _, f in nombres:
+                v = fila[i]
+                d[n] = f(v) if f is not None and v is not None else v
+            salida.append({n: d[n] for n in orden})
+        return json.dumps(salida, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
+
+    respuesta.body = await asyncio.to_thread(armar) if len(filas) > 2000 else armar()
+    respuesta.headers["content-length"] = str(len(respuesta.body))
+    return respuesta
 
 async def _preparar_neumatico(db: AsyncSession, data: "NeumaticCreate") -> dict:
     """Valida contra el catalogo y completa los datos derivados de una llanta:
