@@ -1,7 +1,10 @@
-import { TextField, MenuItem, Alert, Stack, Typography, Chip } from '@mui/material'
+import { useState } from 'react'
+import { TextField, MenuItem, Alert, Stack, Typography, Chip, Button, ListSubheader } from '@mui/material'
 import Grid from '@mui/material/Grid2'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { apiClient as api } from '@/api/client'
+import { mensajeDeError } from '@/utils/errorApi'
 import type { MarcaNeu, DimensionNeu, ReferenciaNeu, ReferenciaDimension } from './CatalogoLlantas'
 
 export interface SeleccionCatalogo {
@@ -52,20 +55,68 @@ export function SelectorCatalogoLlanta({
     queryFn: () => api.get(`/eam/neumaticos/catalogo/referencias/${valor.referencia_id}/dimensiones`).then(r => r.data),
     enabled: !!valor.referencia_id,
   })
+  // Todas las dimensiones del catálogo: las que la referencia aún no tiene
+  // configuradas se pueden configurar desde aquí, con su profundidad inicial.
+  // Sin esto, una referencia sin dimensiones dejaba la lista vacía y no había
+  // forma de crear la llanta sin salir a Configuración.
+  const { data: dimensiones = [] } = useQuery<DimensionNeu[]>({
+    queryKey: ['eam-cat-dimensiones', ambito],
+    queryFn: () => api.get('/eam/neumaticos/catalogo/dimensiones', { params: { ambito } }).then(r => r.data),
+    enabled: !!valor.referencia_id,
+  })
+  const qc = useQueryClient()
+  const [porConfigurar, setPorConfigurar] = useState('')   // id de la dimensión elegida sin configurar
+  const [profNueva, setProfNueva] = useState('')
+  const configuradas = new Set(refDims.map(rd => rd.dimension_id))
+  const sinConfigurar = dimensiones.filter(d => !configuradas.has(d.id))
+  const dimPorConfigurar = sinConfigurar.find(d => String(d.id) === porConfigurar)
+
+  const configurar = useMutation({
+    mutationFn: () => api.post('/eam/neumaticos/catalogo/referencia-dimension', {
+      referencia_id: Number(valor.referencia_id), dimension_id: Number(porConfigurar),
+      profundidad_inicial: Number(profNueva),
+    }).then(r => r.data as ReferenciaDimension),
+    onSuccess: rd => {
+      toast.success('Dimensión configurada para la referencia')
+      qc.invalidateQueries({ queryKey: ['eam-cat-ref-dim'] })
+      onChange({
+        ...valor, dimension_id: String(rd.dimension_id), medida: dimPorConfigurar?.nombre ?? '',
+        profundidad_inicial: rd.profundidad_inicial ?? null,
+        vida_util_km: rd.vida_util_km ?? null,
+        presion_recomendada: rd.presion_recomendada ?? null,
+      })
+      setPorConfigurar('')
+      setProfNueva('')
+    },
+    onError: (e: unknown) => toast.error(mensajeDeError(e, 'No se pudo configurar la dimensión')),
+  })
 
   const elegirMarca = (id: string) => {
     const m = marcas.find(x => String(x.id) === id)
     // Cambiar la marca invalida la referencia y la dimensión elegidas
+    setPorConfigurar('')
     onChange({ ...SELECCION_VACIA, marca_id: id, marca: m?.nombre ?? '' })
   }
   const elegirReferencia = (id: string) => {
     const r = referencias.find(x => String(x.id) === id)
+    setPorConfigurar('')
     onChange({
       ...valor, referencia_id: id, referencia: r?.nombre ?? '', tipo_uso: r?.tipo_uso ?? null,
       dimension_id: '', medida: '', profundidad_inicial: null, vida_util_km: null, presion_recomendada: null,
     })
   }
   const elegirDimension = (id: string) => {
+    // El rótulo «Sin configurar…» de la lista no es una opción: al tocarlo
+    // llega sin valor.
+    if (typeof id !== 'string') return
+    if (id.startsWith('nueva:')) {
+      // Existe en el catálogo pero no para esta referencia: falta su profundidad.
+      setPorConfigurar(id.slice(6))
+      setProfNueva('')
+      onChange({ ...valor, dimension_id: '', medida: '', profundidad_inicial: null, vida_util_km: null, presion_recomendada: null })
+      return
+    }
+    setPorConfigurar('')
     const rd = refDims.find(x => String(x.dimension_id) === id)
     onChange({
       ...valor, dimension_id: id, medida: rd?.dimension_nombre ?? '',
@@ -106,17 +157,46 @@ export function SelectorCatalogoLlanta({
       </Grid>
 
       <Grid size={{ xs: 12, sm: 4 }}>
-        <TextField select label="Dimensión *" size="small" fullWidth value={valor.dimension_id}
+        <TextField select label="Dimensión *" size="small" fullWidth
+          value={valor.dimension_id || (dimPorConfigurar ? `nueva:${porConfigurar}` : '')}
           onChange={e => elegirDimension(e.target.value)} disabled={!valor.referencia_id}
-          helperText={!valor.referencia_id ? 'Elige primero la referencia' : refDims.length === 0 ? 'Esta referencia no tiene dimensiones' : undefined}>
+          helperText={!valor.referencia_id ? 'Elige primero la referencia'
+            : refDims.length === 0 && sinConfigurar.length === 0 ? 'No hay dimensiones en el catálogo'
+            : refDims.length === 0 ? 'Elige la dimensión e indica su profundidad inicial' : undefined}>
           <MenuItem value="">Seleccionar…</MenuItem>
           {refDims.map(rd => (
             <MenuItem key={rd.id} value={String(rd.dimension_id)}>
               {rd.dimension_nombre} · {rd.profundidad_inicial} mm
             </MenuItem>
           ))}
+          {sinConfigurar.length > 0 && (
+            <ListSubheader sx={{ lineHeight: '28px', fontSize: 11 }}>Sin configurar para esta referencia</ListSubheader>
+          )}
+          {sinConfigurar.map(d => (
+            <MenuItem key={`n${d.id}`} value={`nueva:${d.id}`}>{d.nombre}</MenuItem>
+          ))}
         </TextField>
       </Grid>
+
+      {dimPorConfigurar && (
+        <Grid size={{ xs: 12 }}>
+          <Alert severity="info" sx={{ py: 0.5, '& .MuiAlert-message': { width: '100%' } }}>
+            <Typography fontSize={12.5} mb={1}>
+              <b>{valor.referencia}</b> aún no tiene configurada la dimensión <b>{dimPorConfigurar.nombre}</b>.
+              Indica su profundidad inicial y queda guardada en el catálogo.
+            </Typography>
+            <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+              <TextField size="small" type="number" label="Profundidad inicial (mm) *" value={profNueva}
+                onChange={e => setProfNueva(e.target.value)} sx={{ width: 230, bgcolor: '#FFFFFF' }}
+                inputProps={{ min: 0, step: 0.1 }} />
+              <Button variant="contained" size="small" disabled={!(Number(profNueva) > 0) || configurar.isPending}
+                onClick={() => configurar.mutate()} sx={{ bgcolor: color, textTransform: 'none', whiteSpace: 'nowrap' }}>
+                Configurar y usar
+              </Button>
+            </Stack>
+          </Alert>
+        </Grid>
+      )}
 
       {valor.profundidad_inicial != null && (
         <Grid size={{ xs: 12 }}>
